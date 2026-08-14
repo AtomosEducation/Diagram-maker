@@ -7,21 +7,21 @@ optics, geometry — and exporting them as clean SVG for print and study materia
 
 | File | Purpose |
 | --- | --- |
-| `Diagram Maker.dc.html` | The whole app: markup, styles and component logic |
-| `support.js` | Runtime the `.dc.html` template is built against |
+| `index.html` | The whole app: markup, styles and component logic |
+| `support.js` | Runtime the template is built against |
 | `.thumbnail` | App thumbnail |
 | `uploads/` | Reference images |
 
 ## Running locally
 
 Serve the folder over HTTP (opening the file directly with `file://` will not load
-`support.js` reliably) and open `Diagram Maker.dc.html`:
+`support.js` reliably):
 
 ```bash
 python -m http.server 8765
 ```
 
-Then visit <http://localhost:8765/Diagram%20Maker.dc.html>.
+Then visit <http://localhost:8765/>.
 
 ## Features
 
