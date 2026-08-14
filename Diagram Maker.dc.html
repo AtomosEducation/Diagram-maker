@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  * { box-sizing: border-box; }
+
+  /* Every chrome colour is a variable so the theme switch only has to swap the
+     class on the root element. The canvas deliberately stays paper-white in
+     both themes — the ink is the same on screen as in the exported SVG. */
+  .thm-dark {
+    --bg: #1a1a1a; --panel: #202020; --panel-2: #1c1c1c; --line: #2e2e2e;
+    --ctl: #2b2b2b; --ctl-line: #383838; --ctl-hover: #333333;
+    --field: #1f1f1f; --field-line: #3a3a3a;
+    --fg: #f2f2f2; --fg-2: #d2d2d2; --fg-3: #8b8b8b;
+    --accent: #6ccb95; --accent-2: #8fdcaf; --on-accent: #10241a;
+    --accent-fg: #6ccb95; --accent-line: #3f5c4b;
+    --danger: #e88b7d; --danger-bg: #352b2a; --danger-line: #3d3231;
+    --tile-on: #2f3d35; --row-hover: #2d2d2d;
+    --canvas-line: #3a3a3a; --canvas-shadow: rgba(0,0,0,0.35);
+    --sel-bg: #34503f; --sel-fg: #ffffff;
+  }
+  .thm-light {
+    --bg: #eef0ee; --panel: #ffffff; --panel-2: #f7f8f7; --line: #dfe3e0;
+    --ctl: #f1f3f1; --ctl-line: #d4d9d5; --ctl-hover: #e6ebe7;
+    --field: #ffffff; --field-line: #c9d0cb;
+    --fg: #1b241e; --fg-2: #414a44; --fg-3: #6f7a73;
+    --accent: #6ccb95; --accent-2: #57bd85; --on-accent: #10241a;
+    --accent-fg: #2b7d55; --accent-line: #8ed3ac;
+    --danger: #b8442f; --danger-bg: #f6e4e0; --danger-line: #e6c8c1;
+    --tile-on: #dff0e4; --row-hover: #eaeeeb;
+    --canvas-line: #ccd3ce; --canvas-shadow: rgba(20,30,24,0.10);
+    --sel-bg: #b9e5cc; --sel-fg: #10241a;
+  }
+
+  .thm a { color: var(--accent-fg); text-decoration: none; }
+  .thm a:hover { text-decoration: underline; }
+  .thm input[type="range"] { accent-color: var(--accent); }
+  .thm ::selection { background: var(--sel-bg); color: var(--sel-fg); }
+  .thm ::-webkit-scrollbar { width: 10px; height: 10px; }
+  .thm ::-webkit-scrollbar-thumb { background: var(--field-line); border-radius: 6px; border: 3px solid transparent; background-clip: content-box; }
+  .thm ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+<div class="{{ themeClass }}" style="height: 100vh; display: flex; flex-direction: column; font-family: 'DM Sans', system-ui, sans-serif; color: var(--fg); background: var(--bg); overflow: hidden;">
+
+  <header style="display: flex; align-items: center; gap: 18px; height: 56px; flex: 0 0 56px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line);">
+    <div style="display: flex; align-items: center; gap: 10px; width: 226px; flex: 0 1 226px; min-width: 34px; overflow: hidden;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M3 14l5-5 4 4 3-3 6 6"></path><circle cx="8.5" cy="7.5" r="1.2"></circle></svg>
+      <span style="font-size: 14px; font-weight: 500; letter-spacing: 0.01em; white-space: nowrap;">Diagram Maker</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; min-width: 150px; max-width: 420px; flex: 1 1 auto; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 16px; color: var(--fg-3);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg>
+      <input value="{{ query }}" onChange="{{ setQuery }}" placeholder="Find a component" style="flex: 1; height: 100%; background: transparent; border: none; outline: none; font-family: inherit; font-size: 12.5px; color: var(--fg);" />
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
+      <button onClick="{{ doUndo }}" title="Undo (Ctrl+Z)" style="{{ undoStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10a5.5 5.5 0 0 1 0 11h-6"></path><path d="M8 4L4 8l4 4"></path></svg>
+      </button>
+      <button onClick="{{ doRedo }}" title="Redo (Ctrl+Shift+Z)" style="{{ redoStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H10a5.5 5.5 0 0 0 0 11h6"></path><path d="M16 4l4 4-4 4"></path></svg>
+      </button>
+      <button onClick="{{ addText }}" title="Place a text label on the canvas" style="{{ textBtnStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M12 5v14M9 19h6"></path></svg>
+        Text
+      </button>
+    </div>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
+      <button onClick="{{ toggleSnap }}" style="{{ snapBtnStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9h16M4 15h16M9 4v16M15 4v16"></path></svg>
+        Snap {{ snapLabel }}
+      </button>
+      <button onClick="{{ cycleGrid }}" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="1"></rect><path d="M4 12h16M12 4v16"></path></svg>
+        {{ gridLabel }}
+      </button>
+      <button onClick="{{ toggleRulers }}" title="Show rulers" style="{{ rulerBtnStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"></path><path d="M7 8v3M11 8v4M15 8v3M19 8v4"></path></svg>
+        Rulers
+      </button>
+      <button onClick="{{ toggleFont }}" title="{{ fontTitle }}" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"></path></svg>
+        {{ fontLabel }}
+      </button>
+      <button onClick="{{ togglePtSnap }}" title="Snap to component ends and wire points" style="{{ ptSnapBtnStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg>
+        Points {{ ptSnapLabel }}
+      </button>
+      <button onClick="{{ toggleTheme }}" title="{{ themeTitle }}" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="background: var(--ctl-hover);">
+        <sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"></path></svg>
+        </sc-if>
+        <sc-if value="{{ isLight }}" hint-placeholder-val="{{ false }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"></path></svg>
+        </sc-if>
+        {{ themeLabel }}
+      </button>
+      <button onClick="{{ clearCanvas }}" style="height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-3); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="color: var(--danger); background: var(--danger-bg);">Clear</button>
+      <button onClick="{{ exportSvg }}" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="background: var(--accent-2); border-color: var(--accent-2);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11M8 11l4 4 4-4M4 19h16"></path></svg>
+        Export SVG
+      </button>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; min-height: 0;">
+
+    <nav style="flex: 0 0 226px; background: var(--panel); padding: 10px 8px 14px; display: flex; flex-direction: column; gap: 2px;">
+      <div style="font-size: 11px; letter-spacing: 0.06em; color: var(--fg-3); padding: 6px 12px 10px;">SUBJECT</div>
+      <sc-for list="{{ subjects }}" as="s" hint-placeholder-count="3">
+        <button onClick="{{ s.onPick }}" style="{{ s.style }}" style-hover="background: var(--row-hover);">
+          <span style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 16px; border-radius: 2px; background: {{ s.bar }};"></span>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 17px;">
+          <sc-for list="{{ s.icon }}" as="n" hint-placeholder-count="0">
+            <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ n.d }}" transform="{{ n.tr }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></path>
+            </sc-if>
+            <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+              <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" transform="{{ n.tr }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+            </sc-if>
+          </sc-for>
+        </svg>
+          <span style="flex: 1; text-align: left;">
+            <span style="display: block; font-size: 13.5px; color: var(--fg);">{{ s.name }}</span>
+            <span style="display: block; font-size: 11px; color: var(--fg-3); margin-top: 1px;">{{ s.count }} units</span>
+          </span>
+        </button>
+      </sc-for>
+      <div style="flex: 1;"></div>
+      <div style="font-size: 11.5px; color: var(--fg-3); padding: 0 12px; line-height: 1.6;">Click the canvas to place · drag to move · Del to remove<br />Wire: click each corner, double-click to finish</div>
+    </nav>
+
+    <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+
+      <div style="flex: 0 0 auto; padding: 14px 20px 0;">
+        <div style="font-size: 26px; font-weight: 500; letter-spacing: -0.01em;">{{ subjectName }}</div>
+      </div>
+      <div style="flex: 0 0 52px; display: flex; align-items: center; gap: 6px; padding: 0 20px; overflow-x: auto;">
+        <sc-for list="{{ units }}" as="u" hint-placeholder-count="5">
+          <button onClick="{{ u.onPick }}" style="{{ u.style }}">{{ u.name }}</button>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; position: relative; min-height: 0; padding: 6px 20px 20px;">
+        <div style="position: absolute; inset: 6px 20px 20px; background: #ffffff; border: 1px solid var(--canvas-line); border-radius: 7px; overflow: hidden; box-shadow: 0 2px 10px var(--canvas-shadow); padding: {{ rulerPad }} 0 0 {{ rulerPad }};">
+          <sc-if value="{{ rulersOn }}" hint-placeholder-val="{{ true }}">
+            <div style="position: absolute; inset: 0 0 auto 0; height: 22px; background: var(--panel); border-bottom: 1px solid var(--line); overflow: hidden;">
+              <svg width="100%" height="22" viewBox="0 0 {{ rulerW }} 22" preserveAspectRatio="none" style="display: block; margin-left: {{ rulerPad }};">
+                <sc-for list="{{ ticksX }}" as="t" hint-placeholder-count="0">
+                  <g>
+                    <line x1="{{ t.p }}" y1="15" x2="{{ t.p }}" y2="22" stroke="{{ rulerLine }}" stroke-width="1"></line>
+                    <text x="{{ t.p }}" y="9" text-anchor="middle" dominant-baseline="central" font-size="9" font-family="DM Mono, monospace" fill="{{ rulerInk }}">{{ t.label }}</text>
+                  </g>
+                </sc-for>
+              </svg>
+            </div>
+            <div style="position: absolute; inset: 22px auto 0 0; width: 22px; background: var(--panel); border-right: 1px solid var(--line); overflow: hidden;">
+              <svg width="22" height="100%" viewBox="0 0 22 {{ rulerH }}" preserveAspectRatio="none" style="display: block;">
+                <sc-for list="{{ ticksY }}" as="t" hint-placeholder-count="0">
+                  <g>
+                    <line x1="15" y1="{{ t.p }}" x2="22" y2="{{ t.p }}" stroke="{{ rulerLine }}" stroke-width="1"></line>
+                    <text x="8" y="{{ t.p }}" text-anchor="middle" dominant-baseline="central" font-size="9" font-family="DM Mono, monospace" fill="{{ rulerInk }}" transform="rotate(-90 8 {{ t.p }})">{{ t.label }}</text>
+                  </g>
+                </sc-for>
+              </svg>
+            </div>
+            <div style="position: absolute; left: 0; top: 0; width: 22px; height: 22px; background: var(--panel); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);"></div>
+          </sc-if>
+          <svg ref="{{ svgRef }}" viewBox="{{ viewBox }}" preserveAspectRatio="none" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onDoubleClick="{{ onCanvasDouble }}" style="display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none;">
+            <defs>
+              <pattern id="g-lines" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M20 0 H0 V20" fill="none" stroke="#d3ddd6" stroke-width="1"></path>
+              </pattern>
+              <pattern id="g-dots" width="20" height="20" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="1.15" fill="#a9b8ae"></circle>
+              </pattern>
+            </defs>
+            <rect x="{{ vbX }}" y="{{ vbY }}" width="{{ vbW }}" height="{{ vbH }}" fill="{{ gridFill }}"></rect>
+            <sc-if value="{{ hasContent }}" hint-placeholder-val="{{ false }}">
+              <rect x="{{ exportX }}" y="{{ exportY }}" width="{{ exportW }}" height="{{ exportH }}" fill="none" stroke="#9fb3a6" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style="pointer-events: none;"></rect>
+            </sc-if>
+            <sc-for list="{{ wires }}" as="w" hint-placeholder-count="0">
+              <g onPointerDown="{{ w.onDown }}" style="cursor: move;">
+                <path d="{{ w.hit }}" fill="none" stroke="transparent" stroke-width="14"></path>
+                <sc-for list="{{ w.nodes }}" as="n" hint-placeholder-count="0">
+                  <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                    <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </sc-if>
+                  <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
+                    <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                  </sc-if>
+                </sc-for>
+              </g>
+            </sc-for>
+            <sc-if value="{{ drawing }}" hint-placeholder-val="{{ false }}">
+              <g style="pointer-events: none;">
+                <sc-for list="{{ drawNodes }}" as="n" hint-placeholder-count="0">
+                  <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                    <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </sc-if>
+                  <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+                  </sc-if>
+                </sc-for>
+              </g>
+            </sc-if>
+            <sc-for list="{{ shapes }}" as="it" hint-placeholder-count="0">
+              <g transform="{{ it.transform }}" onPointerDown="{{ it.onDown }}" style="cursor: move;">
+                <rect x="{{ it.bx }}" y="{{ it.by }}" width="{{ it.bw }}" height="{{ it.bh }}" fill="transparent"></rect>
+                <sc-for list="{{ it.nodes }}" as="n" hint-placeholder-count="0">
+                  <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                    <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </sc-if>
+                  <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                  </sc-if>
+                  <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
+                    <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                  </sc-if>
+                </sc-for>
+              </g>
+            </sc-for>
+            <sc-if value="{{ frame }}" hint-placeholder-val="{{ false }}">
+              <g transform="{{ frame.transform }}" style="pointer-events: none;">
+                <rect x="{{ frame.x }}" y="{{ frame.y }}" width="{{ frame.w }}" height="{{ frame.h }}" fill="none" stroke="#2e7d55" stroke-width="1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"></rect>
+                <line x1="0" y1="{{ frame.topY }}" x2="0" y2="{{ frame.rotY }}" stroke="#2e7d55" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                <circle cx="0" cy="{{ frame.rotY }}" r="{{ frame.hr }}" fill="#ffffff" stroke="#2e7d55" stroke-width="1.4" vector-effect="non-scaling-stroke" onPointerDown="{{ frame.onRotate }}" style="pointer-events: auto; cursor: grab;"></circle>
+                <sc-for list="{{ frame.handles }}" as="hh" hint-placeholder-count="0">
+                  <rect x="{{ hh.x }}" y="{{ hh.y }}" width="{{ frame.hs }}" height="{{ frame.hs }}" fill="#ffffff" stroke="#2e7d55" stroke-width="1.4" vector-effect="non-scaling-stroke" onPointerDown="{{ hh.onDown }}" style="pointer-events: auto; cursor: {{ hh.cursor }};"></rect>
+                </sc-for>
+              </g>
+            </sc-if>
+            <sc-for list="{{ handles }}" as="hd" hint-placeholder-count="0">
+              <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="5" fill="#ffffff" stroke="#2e7d55" stroke-width="1.6" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
+            </sc-for>
+            <sc-if value="{{ snapHint }}" hint-placeholder-val="{{ false }}">
+              <g style="pointer-events: none;">
+                <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="8" fill="none" stroke="#e08a2e" stroke-width="1.6"></circle>
+                <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="2.4" fill="#e08a2e"></circle>
+              </g>
+            </sc-if>
+          </svg>
+        </div>
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; inset: 6px 20px 20px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+            <div style="font-size: 13.5px; color: #a8b0ab;">Pick a component on the right, then click here to place it.</div>
+          </div>
+        </sc-if>
+        <div style="position: absolute; left: 32px; bottom: 30px; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: #97a09a; font-family: 'DM Mono', monospace;">
+          <div style="display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; overflow: hidden;">
+            <button onClick="{{ zoomOut }}" title="Zoom out" style="width: 26px; height: 24px; font-family: inherit; font-size: 14px; line-height: 1; color: var(--fg-2); background: transparent; border: none; cursor: pointer;" style-hover="background: var(--ctl-hover);">−</button>
+            <button onClick="{{ zoomReset }}" title="Reset to 100% (Ctrl+0)" style="min-width: 48px; height: 24px; font-family: inherit; font-size: 11px; color: var(--fg-2); background: transparent; border: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); cursor: pointer;" style-hover="background: var(--ctl-hover);">{{ zoomTxt }}</button>
+            <button onClick="{{ zoomIn }}" title="Zoom in" style="width: 26px; height: 24px; font-family: inherit; font-size: 14px; line-height: 1; color: var(--fg-2); background: transparent; border: none; cursor: pointer;" style-hover="background: var(--ctl-hover);">+</button>
+            <button onClick="{{ zoomFit }}" title="Fit the diagram to the view" style="height: 24px; padding: 0 9px; font-family: inherit; font-size: 11px; color: var(--fg-2); background: transparent; border: none; border-left: 1px solid var(--line); cursor: pointer;" style-hover="background: var(--ctl-hover);">Fit</button>
+          </div>
+          <span>{{ statusLine }}</span>
+          <sc-if value="{{ hasContent }}" hint-placeholder-val="{{ false }}">
+            <span title="Size of the SVG that Export will produce">· export {{ exportSize }}</span>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <aside style="flex: 0 0 284px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;">
+      <div style="padding: 16px 16px 10px; display: flex; align-items: baseline; gap: 8px;">
+        <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Components</div>
+        <div style="font-size: 11.5px; color: var(--fg-3);">{{ unitName }}</div>
+      </div>
+      <div style="flex: 1 1 auto; overflow-y: auto; padding: 2px 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start;">
+        <sc-for list="{{ palette }}" as="c" hint-placeholder-count="8">
+          <button onClick="{{ c.onPick }}" title="{{ c.name }}" style="{{ c.style }}" style-hover="background: var(--ctl-hover);">
+            <svg viewBox="{{ c.viewBox }}" width="100%" height="52" style="display: block;">
+              <sc-for list="{{ c.nodes }}" as="n" hint-placeholder-count="0">
+                <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                  <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                </sc-if>
+                <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                  <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                </sc-if>
+                <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
+                  <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                </sc-if>
+              </sc-for>
+            </svg>
+            <span style="display: block; font-size: 10.5px; line-height: 1.25; color: var(--fg-3); margin-top: 7px; text-align: center;">{{ c.name }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="flex: 0 0 auto; border-top: 1px solid var(--line); background: var(--panel-2); max-height: 56%; overflow-y: auto;">
+        <div style="padding: 14px 16px 8px; display: flex; align-items: baseline; gap: 8px;">
+          <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Properties</div>
+          <div style="font-size: 11.5px; color: var(--accent-fg);">{{ propTitle }}</div>
+        </div>
+        <sc-if value="{{ hasProps }}" hint-placeholder-val="{{ true }}">
+          <div style="padding: 4px 12px 16px; display: flex; flex-direction: column; gap: 8px;">
+            <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+              <span style="font-size: 12px; color: var(--fg-2);">Label</span>
+              <input value="{{ pLabel }}" onChange="{{ setLabel }}" placeholder="e.g. R₁ = 10 Ω" style="height: 30px; padding: 0 10px; font-family: inherit; font-size: 12.5px; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;" style-focus="border-color: var(--accent-fg);" />
+            </label>
+            <sc-if value="{{ showTransform }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                  <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Size</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pScaleTxt }}</span></span>
+                  <input type="range" min="0.4" max="2.6" step="0.05" value="{{ pScale }}" onChange="{{ setScale }}" style="width: 100%;" />
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                  <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Rotation</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pRotTxt }}</span></span>
+                  <input type="range" min="-180" max="180" step="5" value="{{ pRot }}" onChange="{{ setRot }}" style="width: 100%;" />
+                </label>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isWire }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                  <span style="font-size: 12px; color: var(--fg-2);">Current arrow</span>
+                  <div style="display: flex; gap: 5px;">
+                    <sc-for list="{{ arrowBtns }}" as="a" hint-placeholder-count="3">
+                      <button onClick="{{ a.onPick }}" style="{{ a.style }}">{{ a.name }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                  <span style="font-size: 12px; color: var(--fg-2);">Routing</span>
+                  <div style="display: flex; gap: 5px;">
+                    <sc-for list="{{ routeBtns }}" as="r" hint-placeholder-count="2">
+                      <button onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.name }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="font-size: 11.5px; color: var(--fg-3); line-height: 1.55; padding: 0 2px;">Pick Wire, then click the canvas for each corner. Double-click or press Enter to finish, Esc to cancel.</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ showWeight }}" hint-placeholder-val="{{ true }}">
+            <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+              <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Line weight</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pSwTxt }}</span></span>
+              <input type="range" min="1" max="4" step="0.2" value="{{ pSw }}" onChange="{{ setSw }}" style="width: 100%;" />
+            </label>
+            </sc-if>
+            <div style="display: flex; gap: 8px;">
+              <button onClick="{{ flipH }}" style="flex: 1; height: 34px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--ctl-hover);">{{ flipLabel }}</button>
+              <sc-if value="{{ showTransform }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ rot90 }}" style="flex: 1; height: 34px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Rotate 90°</button>
+              </sc-if>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onClick="{{ addCenter }}" style="flex: 1; height: 34px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer;" style-hover="background: var(--accent-2);">{{ addLabel }}</button>
+              <sc-if value="{{ selItem }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ duplicate }}" style="height: 34px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Copy</button>
+              </sc-if>
+              <button onClick="{{ removeSel }}" style="height: 34px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--danger); background: var(--ctl); border: 1px solid var(--danger-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--danger-bg);">{{ deleteLabel }}</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ noProps }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 4px 16px 18px; font-size: 12px; color: var(--fg-3); line-height: 1.6;">Select a component above, or click an element on the canvas, to edit it.</div>
+        </sc-if>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;gridStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;lines&quot;,&quot;dots&quot;,&quot;none&quot;],&quot;default&quot;:&quot;lines&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Canvas&quot;},&quot;showLabels&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Canvas&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;font&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sans&quot;,&quot;serif&quot;],&quot;default&quot;:&quot;sans&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+// Colours are baked into every generated shape rather than inherited via
+// `currentColor`. Inheritance does not survive reliably into markup injected
+// with dangerouslySetInnerHTML, and `currentColor` is also not resolved by
+// several SVG consumers (InDesign, Illustrator import, some converters).
+const INK_CANVAS = '#16201a';
+const INK_ICON = '#e6e6e6';
+const INK_ICON_LIGHT = '#2a332d';
+let INK = INK_CANVAS;
+const withInk = (col, fn) => { const prev = INK; INK = col; try { return fn(); } finally { INK = prev; } };
+
+const S = (sw) => `fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"`;
+const P = (d, sw) => `<path d="${d}" ${S(sw)}/>`;
+const C = (cx, cy, r, sw) => `<circle cx="${cx}" cy="${cy}" r="${r}" ${S(sw)}/>`;
+const DOT = (cx, cy, r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${INK}"/>`;
+const DASH = (d, sw, dash) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${sw}" stroke-dasharray="${dash}"/>`;
+const ELL = (cx, cy, rx, ry, sw, dash) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${INK}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+// Diagram text font. Unquoted family names keep the exported markup simple for
+// downstream consumers (InDesign, Illustrator) that choke on nested quotes.
+const FONTS = { sans: 'DM Sans, sans-serif', serif: 'Times New Roman, Times, serif' };
+let FONT = FONTS.sans;
+const withFont = (f, fn) => { const prev = FONT; FONT = f; try { return fn(); } finally { FONT = prev; } };
+const TX = (x, y, t, fs) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none">${t}</text>`;
+const ARROW = (x1, y1, x2, y2, sw, h) => {
+  const a = Math.atan2(y2 - y1, x2 - x1), s = h || 8;
+  const p1 = [x2 - s * Math.cos(a - 0.45), y2 - s * Math.sin(a - 0.45)];
+  const p2 = [x2 - s * Math.cos(a + 0.45), y2 - s * Math.sin(a + 0.45)];
+  return P(`M${x1} ${y1} L${x2} ${y2} M${p1[0]} ${p1[1]} L${x2} ${y2} L${p2[0]} ${p2[1]}`, sw);
+};
+const HATCH = (x, y0, y1, dx, n, sw) => {
+  let d = '';
+  for (let i = 0; i < n; i++) { const y = y0 + (y1 - y0) * i / (n - 1); d += `M${x} ${y} l${dx} ${-Math.abs(dx) * 0.7} `; }
+  return P(d, sw);
+};
+const ZIG = (x0, y, w, n, amp, sw) => {
+  let d = `M${x0} ${y} `; const step = w / (n * 2);
+  for (let i = 0; i < n * 2; i++) d += `L${x0 + step * (i + 1)} ${y + (i % 2 ? amp : -amp)} `;
+  return P(d, sw);
+};
+const SINE = (x0, w, amp, cycles, sw) => {
+  let d = `M${x0} 0 `;
+  for (let i = 1; i <= 64; i++) { const t = i / 64; d += `L${x0 + w * t} ${-amp * Math.sin(t * cycles * 2 * Math.PI)} `; }
+  return P(d, sw);
+};
+
+// Textbook resistor zigzag: starts and ends on the axis, `n` peaks per side.
+const RZIG = (x0, w, n, amp, sw) => {
+  const seg = w / (n * 2);
+  let d = `M${x0} 0 `;
+  for (let i = 0; i < n * 2; i++) d += `L${(x0 + seg * (i + 0.5)).toFixed(2)} ${i % 2 ? amp : -amp} `;
+  return P(d + `L${x0 + w} 0`, sw);
+};
+// Solid arrowhead used for current-direction marks on wires.
+const AHEAD = (x, y, a, size) => {
+  const p1 = [x - size * Math.cos(a - 0.42), y - size * Math.sin(a - 0.42)];
+  const p2 = [x - size * Math.cos(a + 0.42), y - size * Math.sin(a + 0.42)];
+  return `<path d="M${p1[0].toFixed(2)} ${p1[1].toFixed(2)} L${x.toFixed(2)} ${y.toFixed(2)} L${p2[0].toFixed(2)} ${p2[1].toFixed(2)} Z" fill="${INK}" stroke="none"/>`;
+};
+
+const ESC = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// ── String markup → plain node descriptors ────────────────────────────────
+// The component library builds SVG as strings, but injecting those with
+// dangerouslySetInnerHTML is not honoured in every host the app runs in — the
+// glyphs silently vanish while sibling template elements still draw. So the
+// markup is parsed once into plain objects and rendered as real template
+// elements instead. Circles are widened to ellipses so the template only ever
+// needs three cases: path, ellipse, text.
+const toNodes = (html, def) => {
+  const d = def || {};
+  const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${html}</svg>`, 'image/svg+xml');
+  const root = doc.documentElement;
+  if (root.getElementsByTagName('parsererror').length) return [];
+  const out = [];
+  for (const el of root.children) {
+    const g = (n) => el.getAttribute(n);
+    const common = {
+      tr: g('transform') || '',
+      dash: g('stroke-dasharray') || '',
+      fill: g('fill') || d.fill || 'none',
+      stroke: g('stroke') || d.stroke || 'none',
+      sw: g('stroke-width') || d.sw || 0
+    };
+    const num = (n) => Number(el.getAttribute(n)) || 0;
+    if (el.tagName === 'path') out.push({ ...common, isPath: true, d: g('d') });
+    else if (el.tagName === 'circle') out.push({ ...common, isEllipse: true, cx: num('cx'), cy: num('cy'), rx: num('r'), ry: num('r') });
+    else if (el.tagName === 'ellipse') out.push({ ...common, isEllipse: true, cx: num('cx'), cy: num('cy'), rx: num('rx'), ry: num('ry') });
+    // The label is wrapped in an array on purpose. A bare string interpolated
+    // into element content is rendered by the runtime inside a
+    // <span class="sc-interp">, and a span inside an SVG <text> is created in
+    // the SVG namespace, so it paints nothing. An array is passed through as
+    // fragment children instead, which yields a real text node.
+    else if (el.tagName === 'text') out.push({ ...common, isText: true, x: num('x'), y: num('y'), fs: num('font-size') || 14, ff: g('font-family') || FONTS.sans, t: [el.textContent] });
+  }
+  return out;
+};
+// Parsing is not free and renderVals runs on every pointer move, so results are
+// memoised on the markup itself. A move-drag keeps the markup identical (only
+// the group transform changes), so dragging stays on cached nodes.
+const NODE_CACHE = new Map();
+const nodesFor = (html, def) => {
+  const k = (def ? `${def.stroke}|${def.sw}|` : '') + html;
+  let v = NODE_CACHE.get(k);
+  if (!v) {
+    if (NODE_CACHE.size > 400) NODE_CACHE.clear();
+    v = toNodes(html, def);
+    NODE_CACHE.set(k, v);
+  }
+  return v;
+};
+
+// ── Resizing without touching line weight ────────────────────────────────
+// A `scale(sx, sy)` transform also scales the stroke, and when sx ≠ sy SVG
+// strokes with an elliptical pen — horizontals thin out while verticals
+// fatten. So the scale is baked into the geometry instead and the group keeps
+// only translate/rotate/flip, leaving stroke-width to mean exactly what it says.
+const CMD_ARGS = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
+const scalePath = (d, sx, sy) => {
+  const out = [];
+  const re = /([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]*)/g;
+  let m;
+  while ((m = re.exec(d))) {
+    const cmd = m[1], up = cmd.toUpperCase(), n = CMD_ARGS[up];
+    if (up === 'Z') { out.push(cmd); continue; }
+    const nums = (m[2].match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || []).map(Number);
+    const vals = [];
+    for (let i = 0; i < nums.length; i += n) {
+      const g = nums.slice(i, i + n);
+      if (up === 'H') vals.push(g[0] * sx);
+      else if (up === 'V') vals.push(g[0] * sy);
+      // Arc: radii scale with their axis; the flags and x-rotation pass through.
+      else if (up === 'A') vals.push(g[0] * sx, g[1] * sy, g[2], g[3], g[4], g[5] * sx, g[6] * sy);
+      else for (let k = 0; k < g.length; k++) vals.push(g[k] * (k % 2 ? sy : sx));
+    }
+    out.push(cmd + vals.map(v => +v.toFixed(3)).join(' '));
+  }
+  return out.join(' ');
+};
+const scaleNodes = (nodes, sx, sy) => (sx === 1 && sy === 1) ? nodes : nodes.map(n => {
+  if (n.isPath) return { ...n, d: scalePath(n.d, sx, sy) };
+  if (n.isEllipse) return { ...n, cx: n.cx * sx, cy: n.cy * sy, rx: n.rx * sx, ry: n.ry * sy };
+  // Glyphs cannot be stretched per-axis via font-size, so they take the mean.
+  if (n.isText) return { ...n, x: n.x * sx, y: n.y * sy, fs: n.fs * Math.sqrt(sx * sy) };
+  return n;
+});
+// Serialise nodes back to markup so the export renders the identical geometry.
+const nodesMarkup = (nodes) => nodes.map(n => {
+  const dash = n.dash ? ` stroke-dasharray="${n.dash}"` : '';
+  // Filled shapes carry no stroke, so skip the stroke attributes entirely
+  // rather than emitting stroke-width="0" noise.
+  const stroke = n.stroke === 'none' ? ' stroke="none"' : ` stroke="${n.stroke}" stroke-width="${n.sw}"${dash}`;
+  if (n.isPath) return `<path d="${n.d}" fill="${n.fill}"${stroke}${n.stroke === 'none' ? '' : ' stroke-linecap="round" stroke-linejoin="round"'}/>`;
+  if (n.isEllipse) return `<ellipse cx="${n.cx}" cy="${n.cy}" rx="${n.rx}" ry="${n.ry}" fill="${n.fill}"${stroke}/>`;
+  if (n.isText) return `<text x="${n.x}" y="${n.y}" text-anchor="middle" dominant-baseline="central" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}" fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
+  return '';
+}).join('');
+
+// ── Polyline wire geometry ────────────────────────────────────────────────
+// A wire is an ordered list of points. 'ortho' routing inserts an elbow
+// between any two points that are neither level nor plumb, which is how
+// circuit diagrams are drawn in textbooks.
+const routePts = (pts, route) => {
+  if (route !== 'ortho' || pts.length < 2) return pts;
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    const a = out[out.length - 1], b = pts[i];
+    if (a.x !== b.x && a.y !== b.y) out.push({ x: b.x, y: a.y });
+    out.push(b);
+  }
+  return out;
+};
+const polyD = (pts) => pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+// Point + tangent angle at fraction `t` of the polyline's total length.
+const ptAt = (pts, t) => {
+  const segs = [];
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const L = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    segs.push(L); total += L;
+  }
+  if (!total) return { x: pts[0].x, y: pts[0].y, a: 0 };
+  const want = total * t;
+  let acc = 0;
+  for (let i = 0; i < segs.length; i++) {
+    if (acc + segs[i] >= want || i === segs.length - 1) {
+      const u = segs[i] ? Math.min(1, (want - acc) / segs[i]) : 0;
+      const p0 = pts[i], p1 = pts[i + 1];
+      return { x: p0.x + (p1.x - p0.x) * u, y: p0.y + (p1.y - p0.y) * u, a: Math.atan2(p1.y - p0.y, p1.x - p0.x) };
+    }
+    acc += segs[i];
+  }
+};
+const ARROW_MODES = ['none', 'mid', 'end'];
+// Ruler tick positions: the coarsest "nice" step that still leaves ≥64px
+// between labels at the current zoom.
+const ticks = (start, span, z) => {
+  const step = [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000, 2000].find(c => c * z >= 64) || 5000;
+  const out = [];
+  for (let v = Math.ceil(start / step) * step; v <= start + span; v += step) out.push(v);
+  return out;
+};
+// Full markup for one wire: the run itself, its current arrow, and its label.
+const wireHtml = (it, withLabel) => {
+  const pts = routePts(it.pts, it.route);
+  let out = P(polyD(pts), it.sw);
+  const size = Math.max(7, it.sw * 4);
+  if (it.arrow === 'mid') { const q = ptAt(pts, 0.5); out += AHEAD(q.x, q.y, q.a, size); }
+  if (it.arrow === 'end') { const q = ptAt(pts, 1); out += AHEAD(q.x, q.y, q.a, size); }
+  if (withLabel && it.label) {
+    const q = ptAt(pts, 0.5);
+    const perp = q.a + Math.PI / 2;
+    out += TX(q.x - 15 * Math.cos(perp), q.y - 15 * Math.sin(perp), ESC(it.label), 18);
+  }
+  return out;
+};
+// ── Connection points ─────────────────────────────────────────────────────
+// Every component exposes the points a wire is meant to meet. Most are plain
+// two-lead parts whose leads sit at (±w/2, 0); the rest declare `t` in the
+// library. Offsets are returned in canvas units, already scaled/rotated.
+const SNAP_R = 14;
+const EXPORT_PAD = 32;
+// A free-standing text item is not in the component library, so it gets a
+// sentinel key and a synthetic descriptor sized from its own text.
+const TEXT_KEY = '@text';
+const textComp = (i) => {
+  const s = String(i.label == null || i.label === '' ? 'Text' : i.label);
+  return { name: 'Text label', w: Math.max(16, s.length * i.fs * 0.56), h: i.fs * 1.3, t: [[0, 0]] };
+};
+const compOf = (i) => i.text ? textComp(i) : IDX[i.key];
+const termOffsets = (c, sx, sy, rot, flip) => {
+  const ts = c.t || [[-c.w / 2, 0], [c.w / 2, 0]];
+  const fx = (flip ? -1 : 1) * sx, a = rot * Math.PI / 180;
+  const cos = Math.cos(a), sin = Math.sin(a);
+  return ts.map(([lx, ly]) => {
+    const x = lx * fx, y = ly * sy;
+    return { x: x * cos - y * sin, y: x * sin + y * cos };
+  });
+};
+const itemTerms = (i) => i.wire
+  ? i.pts.map(p => ({ x: p.x, y: p.y }))
+  : termOffsets(compOf(i), i.sx, i.sy, i.rot, i.flip).map(o => ({ x: i.x + o.x, y: i.y + o.y }));
+
+const wireBounds = (it) => {
+  const pts = routePts(it.pts, it.route);
+  return {
+    minX: Math.min(...pts.map(p => p.x)), maxX: Math.max(...pts.map(p => p.x)),
+    minY: Math.min(...pts.map(p => p.y)), maxY: Math.max(...pts.map(p => p.y))
+  };
+};
+
+const LIB = [
+  { id: 'physics', name: 'Physics', units: [
+    { id: 'electricity', name: 'Current Electricity', comps: [
+      // \u2014 Conductors \u2014
+      { id: 'wire', name: 'Wire / lead', wire: true, w: 90, h: 12, d: (s) => P('M-45 0 H45', s) + AHEAD(18, 0, 0, Math.max(7, s * 4)) },
+      { id: 'junction', name: 'Junction', w: 24, h: 24, t: [[-12,0],[12,0],[0,12]], d: (s) => P('M-12 0 H12 M0 0 V12', s) + DOT(0, 0, 3.4) },
+      { id: 'crossover', name: 'Crossing (no join)', w: 60, h: 44, t: [[-28,0],[28,0],[0,-20],[0,20]], d: (s) => P('M0 -20 V20', s) + P('M-28 0 H-9 A9 9 0 0 1 9 0 H28', s) },
+      { id: 'terminal', name: 'Terminal', w: 44, h: 24, t: [[-20,0],[0,0]], d: (s) => P('M-20 0 H-7', s) + C(0, 0, 6, s) },
+      // Sliding contact for the potentiometer wire / metre bridge, drawn the way
+      // textbooks do it: a curved flexible lead ending in a solid arrowhead that
+      // touches the wire. Connection points are the tail and the contact tip.
+      { id: 'jockey', name: 'Jockey', w: 62, h: 78, t: [[24,-34],[-16,27]], d: (s) => P('M24 -34 C24 -6 8 -2 -8 18', s) + AHEAD(-16, 27, 2.245, Math.max(11, s * 6)) },
+      // \u2014 Sources \u2014
+      { id: 'cell', name: 'Cell', w: 84, h: 30, d: (s) => P('M-42 0 H-10 M-10 -13 V13 M8 -7 V7 M8 0 H42', s) + TX(-16, -19, '+', 13) + TX(15, -19, '\u2212', 13) },
+      { id: 'battery', name: 'Battery', w: 96, h: 30, d: (s) => P('M-48 0 H-20 M-20 -13 V13 M-8 -7 V7 M2 -13 V13 M14 -7 V7 M14 0 H48', s) },
+      { id: 'battery3', name: 'Battery (3 cells)', w: 120, h: 30, d: (s) => P('M-60 0 H-34 M-34 -13 V13 M-24 -7 V7 M-12 -13 V13 M-2 -7 V7 M10 -13 V13 M20 -7 V7 M20 0 H60', s) + TX(-40, -19, '+', 13) + TX(26, -19, '\u2212', 13) },
+      { id: 'dcsource', name: 'DC source', w: 90, h: 36, d: (s) => P('M-45 0 H-17 M17 0 H45', s) + C(0, 0, 17, s) + P('M-8 -4 H8', s) + DASH('M-8 5 H8', s, '3 3') },
+      { id: 'acsource', name: 'AC source', w: 90, h: 36, d: (s) => P('M-45 0 H-17 M17 0 H45', s) + C(0, 0, 17, s) + P('M-9 0 C-6 -9 -3 -9 0 0 C3 9 6 9 9 0', s) },
+      // \u2014 Resistors \u2014
+      { id: 'resistorz', name: 'Resistor (zigzag)', w: 96, h: 30, d: (s) => P('M-48 0 H-27', s) + RZIG(-27, 54, 3, 11, s) + P('M27 0 H48', s) },
+      { id: 'resistor', name: 'Resistor (box)', w: 90, h: 24, d: (s) => P('M-45 0 H-22 M-22 -9 H22 V9 H-22 Z M22 0 H45', s) },
+      { id: 'varresz', name: 'Variable resistor', w: 96, h: 52, t: [[-48,0],[48,0]], d: (s) => P('M-48 0 H-27', s) + RZIG(-27, 54, 3, 11, s) + P('M27 0 H48', s) + ARROW(-20, 22, 24, -20, s, 9) },
+      { id: 'rheostat', name: 'Rheostat', w: 90, h: 44, t: [[-45,0],[45,0]], d: (s) => P('M-45 0 H-22 M-22 -9 H22 V9 H-22 Z M22 0 H45', s) + ARROW(-16, 22, 20, -16, s, 9) },
+      { id: 'rheostat4', name: 'Rheostat (slider)', w: 110, h: 58, t: [[-52,0],[52,0],[0,-30]], d: (s) => P('M-52 0 H-30 M-30 -10 H30 V10 H-30 Z M30 0 H52', s) + P('M0 -10 V-24 M-9 -24 H9 M0 -24 V-30', s) + ARROW(0, -30, 0, -14, s, 8) },
+      { id: 'potentiometer', name: 'Potentiometer', w: 96, h: 56, t: [[-48,0],[48,0],[0,-32]], d: (s) => P('M-48 0 H-26 M-26 -10 H26 V10 H-26 Z M26 0 H48', s) + P('M0 -32 V-26', s) + ARROW(0, -32, 0, -13, s, 8) },
+      { id: 'resbox', name: 'Resistance box', w: 96, h: 44, d: (s) => P('M-48 0 H-30 M-30 -18 H30 V18 H-30 Z M30 0 H48', s) + DOT(-16, -6, 2.4) + DOT(0, -6, 2.4) + DOT(16, -6, 2.4) + TX(0, 8, 'R.B.', 11) },
+      // \u2014 Switches \u2014
+      { id: 'key', name: 'Plug key', w: 90, h: 30, d: (s) => P('M-45 0 H-18 M-16 -2 L14 -16 M18 0 H45', s) + DOT(-17, 0, 2.6) + DOT(17, 0, 2.6) },
+      // Textbook one-way key: facing brackets, with the plug shown as a dot
+      // between them when the key is closed.
+      { id: 'keyopen', name: 'Key (open)', w: 90, h: 34, d: (s) => P('M-45 0 H-15', s) + P('M-8 -13 C-18 -8 -18 8 -8 13', s) + P('M8 -13 C18 -8 18 8 8 13', s) + P('M15 0 H45', s) },
+      { id: 'keyclosed', name: 'Key (closed)', w: 90, h: 34, d: (s) => P('M-45 0 H-15', s) + P('M-8 -13 C-18 -8 -18 8 -8 13', s) + P('M8 -13 C18 -8 18 8 8 13', s) + P('M15 0 H45', s) + DOT(0, 0, 3.4) },
+      { id: 'switchopen', name: 'Switch (open)', w: 90, h: 36, d: (s) => P('M-45 0 H-18 M18 0 H45 M-17 -3 L13 -18', s) + DOT(-18, 0, 3) + DOT(18, 0, 3) },
+      { id: 'switchclosed', name: 'Switch (closed)', w: 90, h: 24, d: (s) => P('M-45 0 H-18 M18 0 H45 M-17 -1 L18 -6', s) + DOT(-18, 0, 3) + DOT(18, 0, 3) },
+      // \u2014 Loads & meters \u2014
+      { id: 'bulb', name: 'Lamp', w: 90, h: 34, d: (s) => P('M-45 0 H-15 M15 0 H45', s) + C(0, 0, 15, s) + P('M-10.6 -10.6 L10.6 10.6 M10.6 -10.6 L-10.6 10.6', s) },
+      { id: 'bulbfil', name: 'Lamp (filament)', w: 90, h: 36, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + P('M-9 5 C-5 -10 -2 9 0 -2 C2 -10 5 9 9 5', s) },
+      { id: 'ammeter', name: 'Ammeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'A') },
+      { id: 'milliammeter', name: 'Milliammeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'mA', 12) },
+      { id: 'voltmeter', name: 'Voltmeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'V') },
+      { id: 'galvo', name: 'Galvanometer', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'G') },
+      // \u2014 Other elements \u2014
+      { id: 'capacitor', name: 'Capacitor', w: 84, h: 30, d: (s) => P('M-42 0 H-5 M-5 -14 V14 M5 -14 V14 M5 0 H42', s) },
+      { id: 'inductor', name: 'Inductor / coil', w: 90, h: 28, d: (s) => P('M-45 0 H-30', s) + P('M-30 0 A7.5 7.5 0 0 1 -15 0 A7.5 7.5 0 0 1 0 0 A7.5 7.5 0 0 1 15 0 A7.5 7.5 0 0 1 30 0', s) + P('M30 0 H45', s) },
+      { id: 'fuse', name: 'Fuse', w: 90, h: 26, d: (s) => P('M-45 0 H-24 M-24 -8 H24 V8 H-24 Z M24 0 H45 M-24 0 H24', s) },
+      { id: 'diode', name: 'Diode', w: 90, h: 32, d: (s) => P('M-45 0 H-12 M-12 -13 L14 0 L-12 13 Z M14 -13 V13 M14 0 H45', s) },
+      { id: 'led', name: 'LED', w: 96, h: 60, t: [[-45,0],[45,0]], d: (s) => P('M-45 0 H-12 M-12 -13 L14 0 L-12 13 Z M14 -13 V13 M14 0 H45', s) + ARROW(-6, -18, 4, -30, s, 7) + ARROW(6, -18, 16, -30, s, 7) },
+      { id: 'ground', name: 'Earth', w: 40, h: 40, t: [[0,-18]], d: (s) => P('M0 -18 V0 M-16 0 H16 M-10 7 H10 M-4 14 H4', s) }
+    ]},
+    { id: 'optics', name: 'Optics', comps: [
+      { id: 'axis', name: 'Principal axis', w: 200, h: 12, d: (s) => DASH('M-100 0 H100', s, '7 5') },
+      { id: 'convexlens', name: 'Convex lens', w: 40, h: 110, d: (s) => P('M0 -55 C14 -30 14 30 0 55 C-14 30 -14 -30 0 -55', s) },
+      { id: 'concavelens', name: 'Concave lens', w: 44, h: 110, d: (s) => P('M-14 -55 H14 M-14 55 H14 M-12 -55 C-2 -28 -2 28 -12 55 M12 -55 C2 -28 2 28 12 55', s) },
+      { id: 'planemirror', name: 'Plane mirror', w: 30, h: 110, d: (s) => P('M0 -55 V55', s) + HATCH(0, -50, 52, 12, 8, s) },
+      { id: 'concavemirror', name: 'Concave mirror', w: 44, h: 110, d: (s) => P('M12 -55 C-10 -28 -10 28 12 55', s) + HATCH(11, -48, 50, 12, 7, s) },
+      { id: 'convexmirror', name: 'Convex mirror', w: 44, h: 110, d: (s) => P('M-12 -55 C10 -28 10 28 -12 55', s) + HATCH(6, -46, 48, 12, 7, s) },
+      { id: 'prism', name: 'Prism', w: 96, h: 88, d: (s) => P('M0 -44 L44 40 H-44 Z', s) },
+      { id: 'ray', name: 'Ray (arrow)', w: 120, h: 20, d: (s) => ARROW(-60, 0, 60, 0, s, 10) },
+      { id: 'objarrow', name: 'Object', w: 24, h: 80, d: (s) => ARROW(0, 38, 0, -38, s, 9) },
+      { id: 'screen', name: 'Screen', w: 34, h: 110, d: (s) => P('M0 -55 V55 M-8 55 H8', s) + HATCH(0, -48, 50, -12, 8, s) },
+      { id: 'focus', name: 'Focus point F', w: 34, h: 34, d: (s) => DOT(0, 0, 3) + TX(0, 15, 'F', 13) }
+    ]},
+    { id: 'gravitation', name: 'Gravitation', comps: [
+      { id: 'planet', name: 'Planet / Earth', w: 96, h: 96, d: (s) => C(0, 0, 44, s) + P('M-44 0 H44 M0 -44 V44', s) + DOT(0, 0, 2.6) },
+      { id: 'orbit', name: 'Orbit', w: 220, h: 130, d: (s) => ELL(0, 0, 106, 60, s, '8 6') },
+      { id: 'satellite', name: 'Satellite', w: 84, h: 40, d: (s) => P('M-11 -11 H11 V11 H-11 Z M-11 0 H-34 M11 0 H34 M-34 -9 V9 M34 -9 V9', s) },
+      { id: 'mass', name: 'Point mass', w: 40, h: 40, d: (s) => DOT(0, 0, 5) + TX(0, 17, 'm', 13) },
+      { id: 'forcevec', name: 'Force vector', w: 110, h: 26, d: (s) => ARROW(-52, 0, 52, 0, s, 10) + TX(0, -14, 'F', 13) },
+      { id: 'radiusline', name: 'Radius r', w: 120, h: 24, d: (s) => P('M-58 0 H58 M-58 -5 V5 M58 -5 V5', s) + TX(0, -13, 'r', 13) },
+      { id: 'surface', name: 'Earth surface', w: 160, h: 30, d: (s) => P('M-78 -6 C-30 -16 30 -16 78 -6', s) + HATCH(-70, -4, 8, 12, 9, s) }
+    ]},
+    { id: 'mechanics', name: 'Laws of Motion', comps: [
+      { id: 'block', name: 'Block', w: 70, h: 56, d: (s) => P('M-32 -25 H32 V25 H-32 Z', s) + TX(0, 0, 'm', 14) },
+      { id: 'incline', name: 'Inclined plane', w: 170, h: 100, d: (s) => P('M-82 46 H82 L-82 -46 Z', s) + P('M-46 46 A40 40 0 0 0 -60 22', s) },
+      { id: 'pulley', name: 'Pulley', w: 80, h: 90, d: (s) => C(0, -8, 24, s) + DOT(0, -8, 2.6) + P('M0 -32 V-42 M-8 -42 H8 M-24 -8 V38 M24 -8 V38', s) },
+      { id: 'spring', name: 'Spring', w: 130, h: 40, d: (s) => P('M-62 0 H-46 M46 0 H62', s) + ZIG(-46, 0, 92, 6, 13, s) },
+      { id: 'string', name: 'String', w: 110, h: 12, d: (s) => P('M-54 0 H54', s) },
+      { id: 'arrowlbl', name: 'Vector', w: 110, h: 26, d: (s) => ARROW(-52, 0, 52, 0, s, 10) },
+      { id: 'groundline', name: 'Ground', w: 170, h: 26, d: (s) => P('M-82 -6 H82', s) + HATCH(-74, -4, 8, 12, 10, s) },
+      { id: 'anglearc', name: 'Angle \u03b8', w: 100, h: 70, d: (s) => P('M-44 28 H44 M-44 28 L36 -28', s) + P('M-8 28 A36 36 0 0 0 -14 12', s) + TX(-2, 16, '\u03b8', 12) }
+    ]},
+    { id: 'waves', name: 'Waves & Sound', comps: [
+      { id: 'sine', name: 'Wave', w: 200, h: 80, d: (s) => SINE(-100, 200, 32, 2, s) },
+      { id: 'axisline', name: 'Mean line', w: 200, h: 12, d: (s) => DASH('M-100 0 H100', s, '6 5') },
+      { id: 'wavefront', name: 'Wavefronts', w: 110, h: 130, d: (s) => P('M-40 -60 A70 70 0 0 1 -40 60 M-14 -58 A62 62 0 0 1 -14 58 M12 -54 A54 54 0 0 1 12 54', s) + DOT(-50, 0, 3) },
+      { id: 'fork', name: 'Tuning fork', w: 70, h: 110, d: (s) => P('M-16 -50 V18 A16 16 0 0 0 16 18 V-50 M0 34 V52 M-9 52 H9', s) },
+      { id: 'amplitude', name: 'Amplitude mark', w: 40, h: 80, d: (s) => P('M0 38 V-38 M-7 38 H7 M-7 -38 H7', s) + TX(13, 0, 'A', 13) }
+    ]}
+  ]},
+  { id: 'chemistry', name: 'Chemistry', units: [
+    { id: 'apparatus', name: 'Lab Apparatus', comps: [
+      { id: 'testtube', name: 'Test tube', w: 44, h: 120, d: (s) => P('M-11 -56 V38 A11 11 0 0 0 11 38 V-56 M-15 -56 H15', s) },
+      { id: 'beaker', name: 'Beaker', w: 76, h: 92, d: (s) => P('M-26 -40 V38 H26 V-40 M-32 -40 H-18 M18 -40 H32', s) + DASH('M-26 -8 H26', s, '6 5') },
+      { id: 'flask', name: 'Conical flask', w: 88, h: 116, d: (s) => P('M-8 -56 V-26 L-38 52 H38 L8 -26 V-56 M-12 -56 H12', s) },
+      { id: 'rbflask', name: 'Round flask', w: 84, h: 122, d: (s) => C(0, 22, 36, s) + P('M-10 -58 V-14 M10 -58 V-14 M-14 -58 H14', s) },
+      { id: 'burette', name: 'Burette', w: 40, h: 150, d: (s) => P('M-9 -70 V52 L0 74 L9 52 V-70 M-13 -70 H13 M-9 -46 H-2 M-9 -22 H-2 M-9 2 H-2 M-9 26 H-2', s) },
+      { id: 'funnel', name: 'Funnel', w: 60, h: 96, d: (s) => P('M-27 -44 H27 L4 -4 V44 M-4 44 V-4 L-27 -44', s) },
+      { id: 'burner', name: 'Burner', w: 70, h: 100, d: (s) => P('M-26 46 H26 M-14 46 V6 H14 V46 M-4 6 C-9 -12 9 -20 3 -44', s) },
+      { id: 'tripod', name: 'Tripod stand', w: 96, h: 80, d: (s) => P('M-44 -34 H44 M-36 -34 L-42 38 M36 -34 L42 38 M0 -34 V38', s) },
+      { id: 'thermometer', name: 'Thermometer', w: 30, h: 130, d: (s) => P('M-6 -60 V44 M6 -60 V44 M-6 -60 A6 6 0 0 1 6 -60 M-6 -34 H-1 M-6 -14 H-1 M-6 6 H-1', s) + C(0, 52, 10, s) },
+      { id: 'delivery', name: 'Delivery tube', w: 130, h: 80, d: (s) => P('M-60 -32 V-4 C-60 22 -20 34 10 34 H60', s) },
+      { id: 'clamp', name: 'Stand & clamp', w: 100, h: 150, d: (s) => P('M-34 -70 V68 M-52 68 H10 M-34 -6 H14 M14 -18 V6 M22 -18 H14 M22 6 H14', s) },
+      { id: 'trough', name: 'Trough', w: 130, h: 66, d: (s) => P('M-60 -26 V26 H60 V-26', s) + DASH('M-60 -6 H60', s, '6 5') },
+      { id: 'gasjar', name: 'Gas jar', w: 62, h: 104, d: (s) => P('M-24 -46 V46 H24 V-46 M-29 -46 H29', s) }
+    ]},
+    { id: 'organic', name: 'Organic Chemistry', comps: [
+      { id: 'benzene', name: 'Benzene ring', w: 96, h: 104, d: (s) => P('M0 -48 L42 -24 V24 L0 48 L-42 24 V-24 Z', s) + C(0, 0, 22, s) },
+      { id: 'hexagon', name: 'Cyclohexane', w: 96, h: 104, d: (s) => P('M0 -48 L42 -24 V24 L0 48 L-42 24 V-24 Z', s) },
+      { id: 'bond', name: 'Single bond', w: 70, h: 14, d: (s) => P('M-32 0 H32', s) },
+      { id: 'dbond', name: 'Double bond', w: 70, h: 22, d: (s) => P('M-32 -5 H32 M-32 5 H32', s) },
+      { id: 'tbond', name: 'Triple bond', w: 70, h: 30, d: (s) => P('M-32 -8 H32 M-32 0 H32 M-32 8 H32', s) },
+      { id: 'zigchain', name: 'Carbon chain', w: 160, h: 60, d: (s) => P('M-74 12 L-37 -12 L0 12 L37 -12 L74 12', s) },
+      { id: 'atomlbl', name: 'Atom label', w: 44, h: 40, d: (s) => TX(0, 0, 'C', 22) },
+      { id: 'ohgroup', name: '\u2014OH group', w: 80, h: 34, d: (s) => P('M-36 0 H-8', s) + TX(14, 0, 'OH', 18) },
+      { id: 'arrowrxn', name: 'Reaction arrow', w: 120, h: 26, d: (s) => ARROW(-54, 0, 54, 0, s, 10) },
+      { id: 'revarrow', name: 'Equilibrium', w: 120, h: 34, d: (s) => ARROW(-50, -7, 50, -7, s, 9) + ARROW(50, 7, -50, 7, s, 9) }
+    ]},
+    { id: 'atomic', name: 'Atomic Structure', comps: [
+      { id: 'nucleus', name: 'Nucleus', w: 50, h: 50, d: (s) => C(0, 0, 20, s) + TX(0, 0, '+', 16) },
+      { id: 'shell', name: 'Shell', w: 160, h: 160, d: (s) => ELL(0, 0, 74, 74, s, '6 6') },
+      { id: 'electron', name: 'Electron', w: 26, h: 26, d: (s) => C(0, 0, 7, s) + P('M-3 0 H3', s) },
+      { id: 'lonepair', name: 'Lone pair', w: 34, h: 20, d: (s) => DOT(-7, 0, 3) + DOT(7, 0, 3) },
+      { id: 'orbital', name: 'p-orbital', w: 60, h: 130, d: (s) => P('M0 0 C-26 -22 -26 -56 0 -60 C26 -56 26 -22 0 0 C-26 22 -26 56 0 60 C26 56 26 22 0 0', s) },
+      { id: 'ionarrow', name: 'Transfer arrow', w: 110, h: 40, d: (s) => P('M-50 6 C-24 -26 24 -26 50 6', s) + P('M42 -1 L50 6 L40 8', s) }
+    ]},
+    { id: 'electrochem', name: 'Electrochemistry', comps: [
+      { id: 'halfcell', name: 'Half cell', w: 110, h: 110, d: (s) => P('M-42 -48 V44 H42 V-48', s) + DASH('M-42 -22 H42', s, '6 5') },
+      { id: 'electrode', name: 'Electrode', w: 30, h: 120, d: (s) => P('M-9 -56 H9 V50 H-9 Z', s) },
+      { id: 'saltbridge', name: 'Salt bridge', w: 150, h: 70, d: (s) => P('M-64 30 V-16 C-64 -30 -50 -30 -30 -30 H30 C50 -30 64 -30 64 -16 V30 M-48 30 V-14 C-48 -18 -44 -18 -30 -18 H30 C44 -18 48 -18 48 -14 V30', s) },
+      { id: 'voltmeterC', name: 'Voltmeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'V') },
+      { id: 'gasbubbles', name: 'Gas bubbles', w: 50, h: 70, d: (s) => C(-10, 26, 5, s) + C(8, 8, 6, s) + C(-6, -14, 4.5, s) + C(10, -30, 5.5, s) }
+    ]}
+  ]},
+  { id: 'mathematics', name: 'Mathematics', units: [
+    { id: 'plane', name: 'Plane Geometry', comps: [
+      { id: 'point', name: 'Point', w: 30, h: 30, d: (s) => DOT(0, 0, 4) + TX(0, -14, 'A', 13) },
+      { id: 'segment', name: 'Segment', w: 130, h: 24, d: (s) => P('M-58 0 H58', s) + DOT(-58, 0, 3.4) + DOT(58, 0, 3.4) },
+      { id: 'rayline', name: 'Ray', w: 130, h: 24, d: (s) => ARROW(-58, 0, 58, 0, s, 9) + DOT(-58, 0, 3.4) },
+      { id: 'triangle', name: 'Triangle', w: 130, h: 110, d: (s) => P('M0 -50 L58 50 H-58 Z', s) },
+      { id: 'righttri', name: 'Right triangle', w: 130, h: 110, d: (s) => P('M-58 50 H58 V-50 Z', s) + P('M40 50 V34 H58', s) },
+      { id: 'circleR', name: 'Circle + radius', w: 120, h: 120, d: (s) => C(0, 0, 54, s) + P('M0 0 L54 0', s) + DOT(0, 0, 3) + TX(26, -11, 'r', 13) },
+      { id: 'square', name: 'Square', w: 100, h: 100, d: (s) => P('M-44 -44 H44 V44 H-44 Z', s) },
+      { id: 'rect', name: 'Rectangle', w: 140, h: 90, d: (s) => P('M-64 -38 H64 V38 H-64 Z', s) },
+      { id: 'pgram', name: 'Parallelogram', w: 150, h: 90, d: (s) => P('M-48 -38 H70 L48 38 H-70 Z', s) },
+      { id: 'arcseg', name: 'Arc', w: 110, h: 70, d: (s) => P('M-50 26 A56 56 0 0 1 50 26', s) },
+      { id: 'angle', name: 'Angle', w: 120, h: 90, d: (s) => P('M-52 34 H56 M-52 34 L44 -34', s) + P('M-14 34 A38 38 0 0 0 -18 18', s) + TX(-6, 20, '\u03b8', 12) },
+      { id: 'perp', name: 'Perpendicular', w: 110, h: 90, d: (s) => P('M-50 36 H50 M0 36 V-36 M0 20 H16 V36', s) }
+    ]},
+    { id: 'coordinate', name: 'Coordinate Geometry', comps: [
+      { id: 'axes', name: 'X\u2013Y axes', w: 240, h: 200, d: (s) => ARROW(-110, 0, 110, 0, s, 9) + ARROW(0, 90, 0, -90, s, 9) + TX(102, 16, 'x', 14) + TX(15, -82, 'y', 14) + TX(-11, 13, 'O', 13) },
+      { id: 'quadgrid', name: 'Grid', w: 200, h: 200, d: (s) => { let d = ''; for (let i = -2; i <= 2; i++) { d += `M${i * 40} -90 V90 M-90 ${i * 40} H90 `; } return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${Math.max(0.7, s * 0.5)}"/>`; } },
+      { id: 'plotpt', name: 'Plotted point', w: 40, h: 40, d: (s) => DOT(0, 0, 4.5) + TX(0, -16, '(x, y)', 12) },
+      { id: 'straight', name: 'Line y = mx + c', w: 190, h: 130, d: (s) => P('M-86 52 L86 -52', s) },
+      { id: 'parabola', name: 'Parabola', w: 170, h: 140, d: (s) => P('M-74 -62 C-30 66 30 66 74 -62', s) },
+      { id: 'dashdrop', name: 'Projection lines', w: 130, h: 110, d: (s) => DASH('M-56 -44 H50 M50 -44 V46', s, '5 5') + DOT(50, -44, 4) }
+    ]},
+    { id: 'solids', name: 'Solid Figures', comps: [
+      { id: 'cube', name: 'Cube', w: 130, h: 130, d: (s) => P('M-52 -34 H36 V54 H-52 Z M-52 -34 L-20 -58 H68 L36 -34 M68 -58 V30 L36 54', s) },
+      { id: 'cuboid', name: 'Cuboid', w: 170, h: 120, d: (s) => P('M-72 -20 H50 V44 H-72 Z M-72 -20 L-44 -46 H78 L50 -20 M78 -46 V18 L50 44', s) },
+      { id: 'cylinder', name: 'Cylinder', w: 110, h: 150, d: (s) => P('M-42 -50 V50 M42 -50 V50', s) + ELL(0, -50, 42, 15, s) + P('M-42 50 A42 15 0 0 0 42 50', s) },
+      { id: 'cone', name: 'Cone', w: 120, h: 150, d: (s) => P('M0 -62 L-46 52 M0 -62 L46 52', s) + ELL(0, 52, 46, 16, s) },
+      { id: 'sphere', name: 'Sphere', w: 120, h: 120, d: (s) => C(0, 0, 54, s) + ELL(0, 0, 54, 17, s, '5 5') },
+      { id: 'hemisphere', name: 'Hemisphere', w: 120, h: 90, d: (s) => P('M-54 12 A54 54 0 0 1 54 12', s) + ELL(0, 12, 54, 16, s) }
+    ]}
+  ]}
+];
+
+const IDX = {};
+LIB.forEach(s => s.units.forEach(u => u.comps.forEach(c => { IDX[s.id + '/' + u.id + '/' + c.id] = c; })));
+
+class Component extends DCLogic {
+  state = {
+    subject: 'physics', unit: 'electricity', pick: null,
+    items: [], sel: null, nextId: 1,
+    grid: null, theme: null, font: null, snap: true, ptSnap: true, snapAt: null, query: '',
+    // `view` is the canvas coordinate at the viewport's top-left plus a zoom
+    // factor in px per canvas unit; `vp` is the live pixel size of the canvas
+    // element, measured so the viewBox aspect always matches it exactly.
+    view: { x: 0, y: 0, z: 1 }, vp: { w: 760, h: 480 }, rulers: true,
+    // `draw` holds the wire being laid down click-by-click; `cursor` is the
+    // live pointer position used for the rubber-band segment.
+    draw: null, cursor: null,
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight' }
+  };
+
+  componentDidMount() {
+    this._key = (e) => {
+      const active = document.activeElement;
+      const typing = !!(active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable));
+      if (typing) {
+        if (e.key === 'Escape') active.blur();
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !typing) {
+        if (this.state.draw && e.key === 'Backspace') {
+          e.preventDefault();
+          const pts = this.state.draw.pts;
+          if (pts.length <= 1) {
+            this.setState({ draw: null, cursor: null });
+          } else {
+            this.setState({ draw: { ...this.state.draw, pts: pts.slice(0, -1) } });
+          }
+        } else if (this.state.sel) {
+          e.preventDefault(); this.remove();
+        }
+      }
+      if (e.key === 'Enter' && this.state.draw && !typing) { e.preventDefault(); this.finishWire(); }
+      if (e.key === 'Escape') {
+        if (this.state.draw) this.setState({ draw: null, cursor: null });
+        else this.setState({ sel: null, pick: null });
+      }
+      if (e.code === 'Space' && !typing) { this._space = true; if (e.target === document.body) e.preventDefault(); }
+      if ((e.key === '0' || e.key === ')') && (e.ctrlKey || e.metaKey) && !typing) { e.preventDefault(); this.zoomTo(1); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) {
+        e.preventDefault();
+        if (e.shiftKey) this.redo(); else this.undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); this.redo(); }
+    };
+    this._keyUp = (e) => { if (e.code === 'Space') this._space = false; };
+    window.addEventListener('keydown', this._key);
+    window.addEventListener('keyup', this._keyUp);
+    this.syncPageBg();
+  }
+  componentDidUpdate() { this.syncPageBg(); }
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._key);
+    window.removeEventListener('keyup', this._keyUp);
+    if (this._ro) this._ro.disconnect();
+  }
+
+  // ── View: zoom, pan, viewport measurement ───────────────────────────────
+  attachCanvas = (el) => {
+    if (this._svg === el) return;
+    if (this._svg && this._onWheel) this._svg.removeEventListener('wheel', this._onWheel);
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    this._svg = el;
+    if (!el) return;
+    // React registers onWheel passively, so preventDefault there is ignored.
+    this._onWheel = (e) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      const v = this.state.view;
+      const ox = e.clientX - r.left, oy = e.clientY - r.top;
+      const cx = v.x + ox / v.z, cy = v.y + oy / v.z;
+      const z = Math.min(8, Math.max(0.15, v.z * Math.exp(-e.deltaY * 0.0015)));
+      this.setState({ view: { x: cx - ox / z, y: cy - oy / z, z } });
+    };
+    el.addEventListener('wheel', this._onWheel, { passive: false });
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+      const vp = this.state.vp;
+      if (vp.w !== w || vp.h !== h) this.setState({ vp: { w, h } });
+    };
+    measure();
+    this._ro = new ResizeObserver(measure);
+    this._ro.observe(el);
+  };
+
+  startPan(e) {
+    const v0 = this.state.view;
+    const sx = e.clientX, sy = e.clientY;
+    const move = (ev) => this.setState({
+      view: { z: v0.z, x: v0.x - (ev.clientX - sx) / v0.z, y: v0.y - (ev.clientY - sy) / v0.z }
+    });
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  // Zoom about the centre of the viewport.
+  zoomTo(z) {
+    const v = this.state.view, vp = this.state.vp;
+    const nz = Math.min(8, Math.max(0.15, z));
+    const cx = v.x + vp.w / 2 / v.z, cy = v.y + vp.h / 2 / v.z;
+    this.setState({ view: { x: cx - vp.w / 2 / nz, y: cy - vp.h / 2 / nz, z: nz } });
+  }
+
+  zoomFit() {
+    const vp = this.state.vp, b = this.exportBounds(EXPORT_PAD);
+    const z = Math.min(8, Math.max(0.15, Math.min(vp.w / b.w, vp.h / b.h) * 0.92));
+    this.setState({ view: { x: b.x + b.w / 2 - vp.w / 2 / z, y: b.y + b.h / 2 - vp.h / 2 / z, z } });
+  }
+
+  // The root element covers the viewport, but the page behind it still shows
+  // through on overscroll, so keep it in step with the theme.
+  syncPageBg() {
+    const bg = this.theme === 'dark' ? '#1a1a1a' : '#eef0ee';
+    if (this._bg !== bg) { this._bg = bg; document.documentElement.style.background = bg; }
+  }
+
+  get gridMode() { return this.state.grid === null ? (this.props.gridStyle || 'lines') : this.state.grid; }
+  // Same override pattern as the grid: null means "follow the prop".
+  get theme() { return this.state.theme === null ? (this.props.theme === 'light' ? 'light' : 'dark') : this.state.theme; }
+  get fontKey() { return this.state.font === null ? (this.props.font === 'serif' ? 'serif' : 'sans') : this.state.font; }
+  get subject() { return LIB.find(s => s.id === this.state.subject); }
+  get unit() { const s = this.subject; return s.units.find(u => u.id === this.state.unit) || s.units[0]; }
+  get selItem() { return this.state.items.find(i => i.id === this.state.sel) || null; }
+
+  // ── History ─────────────────────────────────────────────────────────────
+  // Items are only ever replaced, never mutated, so a snapshot is just a pair
+  // of references. `key` coalesces bursts of the same edit — dragging a slider
+  // or typing a label should undo as one step, not one per event.
+  _hist = { past: [], future: [], lastKey: null, lastAt: 0 };
+
+  commit(key) {
+    const h = this._hist, now = performance.now();
+    if (key && key === h.lastKey && now - h.lastAt < 700) { h.lastAt = now; return; }
+    h.past.push({ items: this.state.items, nextId: this.state.nextId });
+    if (h.past.length > 120) h.past.shift();
+    h.future.length = 0;
+    h.lastKey = key || null; h.lastAt = now;
+  }
+
+  step(from, to) {
+    const h = this._hist;
+    if (!h[from].length) return;
+    h[to].push({ items: this.state.items, nextId: this.state.nextId });
+    const s = h[from].pop();
+    h.lastKey = null;
+    this.setState({ items: s.items, nextId: s.nextId, sel: null, draw: null, cursor: null, snapAt: null });
+  }
+  undo() { this.step('past', 'future'); }
+  redo() { this.step('future', 'past'); }
+
+  rawPt(e) {
+    const svg = this._svg; if (!svg) return { x: 0, y: 0 };
+    const m = svg.getScreenCTM().inverse();
+    const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+    return p.matrixTransform(m);
+  }
+  pt(e) {
+    const r = this.rawPt(e);
+    const q = this.state.snap ? 10 : 1;
+    return { x: Math.round(r.x / q) * q, y: Math.round(r.y / q) * q };
+  }
+
+  // Drag one of the eight resize handles. (hx, hy) is the handle's corner in
+  // the item's local frame as -1/0/1; the opposite corner stays pinned, so the
+  // component grows away from the side you grab. Shift keeps the aspect ratio.
+  resize(e, id, hx, hy) {
+    e.stopPropagation();
+    const it = this.state.items.find(i => i.id === id);
+    const c = compOf(it);
+    this.commit(null);
+    const s0 = { x: it.x, y: it.y, sx: it.sx, sy: it.sy };
+    const a = it.rot * Math.PI / 180, fl = it.flip ? -1 : 1;
+    const cos = Math.cos(a), sin = Math.sin(a);
+    const alx0 = -hx * c.w * s0.sx / 2 * fl, aly0 = -hy * c.h * s0.sy / 2;
+    const anchor = { x: s0.x + alx0 * cos - aly0 * sin, y: s0.y + alx0 * sin + aly0 * cos };
+    this.setState({ sel: id, pick: null });
+    const move = (ev) => {
+      const p = this.pt(ev);
+      const dx = p.x - anchor.x, dy = p.y - anchor.y;
+      const lx = (dx * cos + dy * sin) * fl, ly = -dx * sin + dy * cos;
+      let sx = s0.sx, sy = s0.sy;
+      if (hx) sx = Math.min(6, Math.max(0.15, Math.abs(lx) / c.w));
+      if (hy) sy = Math.min(6, Math.max(0.15, Math.abs(ly) / c.h));
+      if (ev.shiftKey && hx && hy) sy = sx * (s0.sy / s0.sx);
+      const alx = -hx * c.w * sx / 2 * fl, aly = -hy * c.h * sy / 2;
+      const nx = anchor.x - (alx * cos - aly * sin), ny = anchor.y - (alx * sin + aly * cos);
+      this.setState(s => ({ items: s.items.map(i => i.id === id ? { ...i, x: nx, y: ny, sx, sy } : i) }));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  // Drag the stalk handle above the frame. Shift snaps to 15°.
+  rotate(e, id) {
+    e.stopPropagation();
+    const it = this.state.items.find(i => i.id === id);
+    this.commit(null);
+    this.setState({ sel: id, pick: null });
+    const move = (ev) => {
+      const p = this.rawPt(ev);
+      let deg = Math.atan2(p.y - it.y, p.x - it.x) * 180 / Math.PI + 90;
+      deg = ev.shiftKey ? Math.round(deg / 15) * 15 : Math.round(deg);
+      deg = ((deg + 180) % 360 + 360) % 360 - 180;
+      this.setState(s => ({ items: s.items.map(i => i.id === id ? { ...i, rot: deg } : i) }));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  // Every connection point currently on the canvas, minus one item (the thing
+  // being moved, which must not snap to itself).
+  snapTargets(excludeId) {
+    const out = [];
+    for (const i of this.state.items) { if (i.id !== excludeId) out.push(...itemTerms(i)); }
+    return out;
+  }
+  // Nearest connection point to `p`, or null.
+  nearestTarget(p, excludeId) {
+    if (!this.state.ptSnap) return null;
+    let best = null, bd = SNAP_R * SNAP_R;
+    for (const t of this.snapTargets(excludeId)) {
+      const d = (t.x - p.x) * (t.x - p.x) + (t.y - p.y) * (t.y - p.y);
+      if (d <= bd) { bd = d; best = t; }
+    }
+    return best;
+  }
+  // Given an origin and the offsets of a component's own connection points,
+  // find the origin that lands one of them exactly on an existing point.
+  snapByTerminals(origin, offs, excludeId) {
+    if (!this.state.ptSnap) return null;
+    let best = null, bd = SNAP_R * SNAP_R;
+    for (const t of this.snapTargets(excludeId)) {
+      for (const o of offs) {
+        const px = origin.x + o.x, py = origin.y + o.y;
+        const d = (t.x - px) * (t.x - px) + (t.y - py) * (t.y - py);
+        if (d <= bd) { bd = d; best = { x: t.x - o.x, y: t.y - o.y, at: t }; }
+      }
+    }
+    return best;
+  }
+
+  place(x, y) {
+    const key = this.state.pick; if (!key) return;
+    const d = this.state.draft;
+    if (key === TEXT_KEY) {
+      this.commit(null);
+      this.setState(s => ({
+        items: s.items.concat({ id: s.nextId, text: true, x, y, label: d.label || 'Text', fs: d.fs, sx: d.sx, sy: d.sy, rot: d.rot, flip: false }),
+        nextId: s.nextId + 1, sel: s.nextId
+      }));
+      return;
+    }
+    const c = IDX[key];
+    if (c.wire) { this.addWire(key, [{ x: x - 45, y }, { x: x + 45, y }]); return; }
+    const fit = this.snapByTerminals({ x, y }, termOffsets(c, d.sx, d.sy, d.rot, d.flip), null);
+    if (fit) { x = fit.x; y = fit.y; }
+    this.commit(null);
+    this.setState(s => ({
+      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label }),
+      nextId: s.nextId + 1, sel: s.nextId
+    }));
+  }
+
+  addWire(key, pts) {
+    this.commit(null);
+    const d = this.state.draft;
+    this.setState(s => ({
+      items: s.items.concat({ id: s.nextId, key, wire: true, pts, sw: d.sw, label: d.label, arrow: d.arrow, route: d.route }),
+      nextId: s.nextId + 1, sel: s.nextId, draw: null, cursor: null
+    }));
+  }
+
+  // Commit the in-progress polyline. Consecutive duplicate points (produced by
+  // the second half of a finishing double-click) are dropped first.
+  finishWire() {
+    const dr = this.state.draw; if (!dr) return;
+    const pts = dr.pts.filter((p, i, a) => {
+      if (i === 0) return true;
+      const prev = a[i - 1];
+      return Math.hypot(p.x - prev.x, p.y - prev.y) > 0.5;
+    });
+    if (pts.length < 2) { this.setState({ draw: null, cursor: null }); return; }
+    this.addWire(dr.key, pts);
+  }
+
+  onCanvasDown = (e) => {
+    // Middle button or held space pans instead of placing.
+    if (e.button === 1 || this._space) { e.preventDefault(); this.startPan(e); return; }
+    const raw = this.pt(e);
+    const key = this.state.pick;
+    // Wire vertices land straight on a connection point. Components instead
+    // snap by their own terminals, handled inside place().
+    const hit = this.nearestTarget(raw, null);
+    const p = hit ? { x: hit.x, y: hit.y } : raw;
+    if (this.state.draw) {
+      const last = this.state.draw.pts[this.state.draw.pts.length - 1];
+      // Clicking the last vertex again ends the run, same as a double-click.
+      if (last.x === p.x && last.y === p.y) { this.finishWire(); return; }
+      this.setState(s => ({ draw: { ...s.draw, pts: s.draw.pts.concat(p) }, cursor: p }));
+      return;
+    }
+    if (key && key !== TEXT_KEY && IDX[key].wire) {
+      this.setState({ draw: { key, pts: [p] }, cursor: p, sel: null });
+      return;
+    }
+    if (key) this.place(raw.x, raw.y);
+    else this.setState({ sel: null });
+  };
+
+  // Cursor is tracked while drawing a wire (for the rubber band) and while a
+  // component is armed (so the snap marker can preview where it will land).
+  onCanvasMove = (e) => {
+    if (!this.state.draw && !this.state.pick) return;
+    const p = this.pt(e);
+    const c = this.state.cursor;
+    if (!c || c.x !== p.x || c.y !== p.y) this.setState({ cursor: p });
+  };
+
+  onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
+
+  drag(e, id, mode) {
+    e.stopPropagation();
+    const start = this.pt(e);
+    const it = this.state.items.find(i => i.id === id);
+    this.commit(null);
+    // `mode` is 'move', or a vertex index when dragging a single wire handle.
+    const snap0 = it.wire ? { pts: it.pts.map(p => ({ ...p })) } : { x: it.x, y: it.y };
+    const offs0 = it.wire ? null : termOffsets(compOf(it), it.sx, it.sy, it.rot, it.flip);
+    this.setState({ sel: id, pick: null, draw: null, cursor: null });
+    const move = (ev) => {
+      const p = this.pt(ev);
+      let dx = p.x - start.x, dy = p.y - start.y;
+      // Pull the moving item onto a connection point when one is in range.
+      let at = null;
+      if (it.wire && typeof mode === 'number') {
+        const q = { x: snap0.pts[mode].x + dx, y: snap0.pts[mode].y + dy };
+        const t = this.nearestTarget(q, id);
+        if (t) { dx += t.x - q.x; dy += t.y - q.y; at = t; }
+      } else {
+        const fit = it.wire
+          ? this.snapByTerminals({ x: dx, y: dy }, snap0.pts, id)
+          : this.snapByTerminals({ x: snap0.x + dx, y: snap0.y + dy }, offs0, id);
+        if (fit) {
+          if (it.wire) { dx = fit.x; dy = fit.y; }
+          else { dx = fit.x - snap0.x; dy = fit.y - snap0.y; }
+          at = fit.at;
+        }
+      }
+      this.setState(s => ({ snapAt: at, items: s.items.map(i => {
+        if (i.id !== id) return i;
+        if (i.wire) {
+          return { ...i, pts: typeof mode === 'number'
+            ? snap0.pts.map((q, k) => k === mode ? { x: q.x + dx, y: q.y + dy } : q)
+            : snap0.pts.map(q => ({ x: q.x + dx, y: q.y + dy })) };
+        }
+        return { ...i, x: snap0.x + dx, y: snap0.y + dy };
+      }) }));
+    };
+    const up = () => { this.setState({ snapAt: null }); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  patch(o) {
+    this.commit('patch:' + Object.keys(o).join(',') + ':' + this.state.sel);
+    if (this.state.sel) this.setState(s => ({ items: s.items.map(i => i.id === s.sel ? { ...i, ...o } : i) }));
+    else this.setState(s => ({ draft: { ...s.draft, ...o } }));
+  }
+  remove() { this.commit(null); this.setState(s => ({ items: s.items.filter(i => i.id !== s.sel), sel: null })); }
+
+  // Extent of the artwork, i.e. exactly what an export would cover. Kept
+  // separate from svgMarkup so the toolbar can show the size live.
+  exportBounds(pad) {
+    const its = this.state.items;
+    const showLabels = this.props.showLabels !== false;
+    let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    its.forEach(i => {
+      const c = compOf(i);
+      if (i.wire) {
+        const b = wireBounds(i), m = Math.max(10, i.sw * 5) + (i.label && showLabels ? 20 : 0);
+        minX = Math.min(minX, b.minX - m); maxX = Math.max(maxX, b.maxX + m);
+        minY = Math.min(minY, b.minY - m); maxY = Math.max(maxY, b.maxY + m);
+      } else {
+        // Axis-aligned extent of the scaled, rotated box, plus room for a
+        // label sitting below it.
+        const hw = c.w * i.sx / 2, hh = c.h * i.sy / 2 + (!i.text && i.label && showLabels ? 22 * i.sy : 0);
+        const a = i.rot * Math.PI / 180, ca = Math.abs(Math.cos(a)), sa = Math.abs(Math.sin(a));
+        const ex = hw * ca + hh * sa, ey = hw * sa + hh * ca;
+        minX = Math.min(minX, i.x - ex); maxX = Math.max(maxX, i.x + ex);
+        minY = Math.min(minY, i.y - ey); maxY = Math.max(maxY, i.y + ey);
+      }
+    });
+    if (!its.length) { minX = 0; minY = 0; maxX = 400; maxY = 300; }
+    return {
+      x: Math.round(minX - pad), y: Math.round(minY - pad),
+      w: Math.round(maxX - minX + pad * 2), h: Math.round(maxY - minY + pad * 2)
+    };
+  }
+
+  svgMarkup(pad) {
+    const showLabels = this.props.showLabels !== false;
+    let body = '';
+    withFont(FONTS[this.fontKey], () => withInk(INK_CANVAS, () => this.state.items.forEach(i => {
+      const c = compOf(i);
+      if (i.wire) {
+        body += `  <g>${wireHtml(i, showLabels)}</g>\n`;
+      } else {
+        const src = i.text
+          ? TX(0, 0, ESC(i.label == null || i.label === '' ? 'Text' : i.label), i.fs)
+          : c.d(i.sw) + (i.label && showLabels ? TX(0, c.h / 2 + 20, ESC(i.label), 20) : '');
+        const nodes = scaleNodes(toNodes(src), i.sx, i.sy);
+        body += `  <g transform="translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}">${nodesMarkup(nodes)}</g>\n`;
+      }
+    })));
+    const b = this.exportBounds(pad);
+    const fontCss = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');\n  text { font-family: ${FONTS[this.fontKey]}; }`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x} ${b.y} ${b.w} ${b.h}" width="${b.w}" height="${b.h}">\n<defs>\n  <style>${fontCss}</style>\n</defs>\n${body}</svg>\n`;
+  }
+
+  exportSvg = () => {
+    const blob = new Blob([this.svgMarkup(EXPORT_PAD)], { type: 'image/svg+xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${this.state.subject}-${this.state.unit}-diagram.svg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+
+  renderVals() {
+    const st = this.state, sub = this.subject, unit = this.unit;
+    const sel = this.selItem;
+    // The text tool has no library entry, so it borrows a synthetic descriptor
+    // sized from the draft — that keeps the size readout and snapping sane.
+    const pickComp = st.pick === TEXT_KEY
+      ? { ...textComp({ label: st.draft.label, fs: st.draft.fs }), text: true }
+      : (st.pick ? IDX[st.pick] : null);
+    const src = sel || st.draft;
+    // Wires carry no scale/rotation, so fall back to neutral values rather
+    // than letting the shared property readouts hit undefined.
+    const pSx = src.sx == null ? 1 : src.sx;
+    const pSy = src.sy == null ? 1 : src.sy;
+    const pRot = src.rot == null ? 0 : src.rot;
+    const pSwv = src.sw == null ? 1.8 : src.sw;
+    // Readout shows the component's real size rather than a bare multiplier.
+    const dimComp = sel ? compOf(sel) : pickComp;
+    const gm = this.gridMode;
+    const showLabels = this.props.showLabels !== false;
+
+    const dark = this.theme === 'dark';
+    const isWire = !!(sel ? sel.wire : pickComp && pickComp.wire);
+    const isText = !!(sel ? sel.text : pickComp && pickComp.text);
+    // Viewport-derived viewBox: width/height come from the measured pixel size
+    // so one canvas unit is exactly `z` pixels and the rulers stay honest.
+    const vb = { x: st.view.x, y: st.view.y, w: st.vp.w / st.view.z, h: st.vp.h / st.view.z };
+    const eb = this.exportBounds(EXPORT_PAD);
+    FONT = FONTS[this.fontKey];
+    const iconBtn = (on) => `display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-family: inherit; color: ${on ? 'var(--fg-2)' : 'var(--fg-3)'}; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: ${on ? 'pointer' : 'default'}; opacity: ${on ? 1 : 0.45}; flex: 0 0 auto;`;
+    const segStyle = (on) => `flex: 1; height: 30px; padding: 0 4px; font-family: inherit; font-size: 11.5px; color: ${on ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${on ? 'var(--accent)' : 'var(--field)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--field-line)'}; border-radius: 5px; cursor: pointer; white-space: nowrap;`;
+    const tabStyle = (on) => `height: 32px; padding: 0 15px; font-family: inherit; font-size: 12.5px; font-weight: ${on ? 500 : 400}; color: ${on ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${on ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 16px; cursor: pointer; white-space: nowrap; flex: 0 0 auto;`;
+    const ICONS = {
+      physics: '<circle cx="12" cy="12" r="2.4"></circle><ellipse cx="12" cy="12" rx="10" ry="4.4"></ellipse><ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(60 12 12)"></ellipse><ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(120 12 12)"></ellipse>',
+      chemistry: '<path d="M9 3h6M10.5 3v5L5 19a1.6 1.6 0 0 0 1.4 2.4h11.2A1.6 1.6 0 0 0 19 19l-5.5-11V3"></path><path d="M7.4 15h9.2"></path>',
+      mathematics: '<path d="M4 20L12 4l8 16"></path><path d="M8.5 13.5h7"></path><circle cx="12" cy="4" r="1.6"></circle>'
+    };
+    // These end up as SVG stroke attributes, where var() does not resolve, so
+    // each theme needs its own literal values.
+    const SUBCOLOR = dark
+      ? { physics: '#6ccb95', chemistry: '#e5a663', mathematics: '#7ab6e8' }
+      : { physics: '#2b7d55', chemistry: '#a06a1c', mathematics: '#2f6ea8' };
+    const q = st.query.trim().toLowerCase();
+
+    return {
+      breadcrumb: `${sub.name} · ${unit.name}`,
+      snapLabel: st.snap ? 'on' : 'off',
+      gridLabel: gm === 'lines' ? 'Grid' : gm === 'dots' ? 'Dots' : 'Plain',
+      gridFill: gm === 'none' ? '#ffffff' : `url(#g-${gm})`,
+
+      canUndo: this._hist.past.length > 0,
+      canRedo: this._hist.future.length > 0,
+      undoStyle: iconBtn(this._hist.past.length > 0),
+      redoStyle: iconBtn(this._hist.future.length > 0),
+      doUndo: () => this.undo(),
+      doRedo: () => this.redo(),
+
+      textOn: st.pick === TEXT_KEY,
+      textBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+      addText: () => this.setState(s => ({ pick: s.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })),
+
+      themeClass: dark ? 'thm thm-dark' : 'thm thm-light',
+      isDark: dark, isLight: !dark,
+      themeLabel: dark ? 'Light' : 'Dark',
+      themeTitle: dark ? 'Switch to light theme' : 'Switch to dark theme',
+      toggleTheme: () => this.setState({ theme: dark ? 'light' : 'dark' }),
+
+      isEmpty: st.items.length === 0 && !st.draw,
+      statusLine: st.draw
+        ? `drawing wire  ·  ${st.draw.pts.length} point${st.draw.pts.length === 1 ? '' : 's'}  ·  double-click or Enter to finish, Esc to cancel`
+        : `${st.items.length} element${st.items.length === 1 ? '' : 's'}${st.pick ? '  ·  placing ' + pickComp.name : ''}`,
+      svgRef: this.attachCanvas,
+
+      // ── View ──────────────────────────────────────────────────────────
+      viewBox: `${vb.x} ${vb.y} ${vb.w} ${vb.h}`,
+      vbX: vb.x, vbY: vb.y, vbW: vb.w, vbH: vb.h,
+      zoomTxt: Math.round(st.view.z * 100) + '%',
+      zoomIn: () => this.zoomTo(st.view.z * 1.25),
+      zoomOut: () => this.zoomTo(st.view.z / 1.25),
+      zoomReset: () => this.zoomTo(1),
+      zoomFit: () => this.zoomFit(),
+
+      rulersOn: st.rulers,
+      toggleRulers: () => this.setState(s => ({ rulers: !s.rulers })),
+      rulerBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.rulers ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.rulers ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+      rulerPad: st.rulers ? '22px' : '0px',
+      rulerInk: dark ? '#8b8b8b' : '#6f7a73',
+      rulerLine: dark ? '#3a3a3a' : '#c9d0cb',
+      ticksX: ticks(vb.x, vb.w, st.view.z).map(t => ({ p: (t - vb.x) * st.view.z, label: [String(t)] })),
+      ticksY: ticks(vb.y, vb.h, st.view.z).map(t => ({ p: (t - vb.y) * st.view.z, label: [String(t)] })),
+      rulerW: st.vp.w, rulerH: st.vp.h,
+
+      // ── Live export size ──────────────────────────────────────────────
+      exportW: eb.w, exportH: eb.h, exportX: eb.x, exportY: eb.y,
+      exportSize: `${eb.w} × ${eb.h} px`,
+      hasContent: st.items.length > 0,
+
+      fontLabel: this.fontKey === 'serif' ? 'Times' : 'Sans',
+      fontTitle: this.fontKey === 'serif' ? 'Diagram text: Times New Roman — click for DM Sans' : 'Diagram text: DM Sans — click for Times New Roman',
+      toggleFont: () => this.setState({ font: this.fontKey === 'serif' ? 'sans' : 'serif' }),
+
+      onCanvasDown: this.onCanvasDown,
+      onCanvasMove: this.onCanvasMove,
+      onCanvasDouble: this.onCanvasDouble,
+      toggleSnap: () => this.setState(s => ({ snap: !s.snap })),
+      ptSnapLabel: st.ptSnap ? 'on' : 'off',
+      ptSnapBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.ptSnap ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.ptSnap ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+      togglePtSnap: () => this.setState(s => ({ ptSnap: !s.ptSnap, snapAt: null })),
+      // Marker showing which connection point the next click or the current
+      // drag will latch onto.
+      snapHint: (() => {
+        if (st.snapAt) return st.snapAt;
+        if (!st.ptSnap || !st.cursor) return null;
+        if (st.draw) return this.nearestTarget(st.cursor, null);
+        if (pickComp && !pickComp.wire) {
+          const fit = this.snapByTerminals(st.cursor, termOffsets(pickComp, st.draft.sx, st.draft.sy, st.draft.rot, st.draft.flip), null);
+          return fit ? fit.at : null;
+        }
+        if (pickComp) return this.nearestTarget(st.cursor, null);
+        return null;
+      })(),
+      cycleGrid: () => this.setState({ grid: gm === 'lines' ? 'dots' : gm === 'dots' ? 'none' : 'lines' }),
+      clearCanvas: () => { this.commit(null); this.setState({ items: [], sel: null, draw: null, cursor: null }); },
+      exportSvg: this.exportSvg,
+
+      subjectName: sub.name,
+      unitName: unit.name,
+      query: st.query,
+      setQuery: (e) => this.setState({ query: e.target.value }),
+      snapBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.snap ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.snap ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+
+      subjects: LIB.map(s => ({
+        name: s.name, count: s.units.length,
+        icon: nodesFor(ICONS[s.id], { stroke: SUBCOLOR[s.id], sw: 1.5 }),
+        iconColor: SUBCOLOR[s.id],
+        bar: s.id === st.subject ? SUBCOLOR[s.id] : 'transparent',
+        style: `position: relative; display: flex; align-items: center; gap: 12px; text-align: left; padding: 9px 12px 9px 14px; font-family: inherit; background: ${s.id === st.subject ? 'var(--row-hover)' : 'transparent'}; border: none; border-radius: 5px; cursor: pointer; color: var(--fg);`,
+        onPick: () => this.setState({ subject: s.id, unit: s.units[0].id, pick: null, sel: null, query: '' })
+      })),
+
+      units: sub.units.map(u => ({
+        name: u.name, style: tabStyle(u.id === unit.id),
+        onPick: () => this.setState({ unit: u.id, pick: null })
+      })),
+
+      palette: (() => {
+        const pool = [];
+        if (q) {
+          LIB.forEach(s => s.units.forEach(u => u.comps.forEach(c => {
+            if (c.name.toLowerCase().includes(q)) pool.push({ s, u, c });
+          })));
+        } else {
+          unit.comps.forEach(c => pool.push({ s: sub, u: unit, c }));
+        }
+        return pool.map(({ s, u, c }) => {
+          const key = s.id + '/' + u.id + '/' + c.id;
+          const on = st.pick === key;
+          const m = Math.max(c.w, c.h) / 2 + 8;
+          const displayName = q ? `${c.name} (${u.name})` : c.name;
+          return {
+            name: displayName, viewBox: `${-m} ${-m} ${m * 2} ${m * 2}`,
+            nodes: nodesFor(withInk(dark ? INK_ICON : INK_ICON_LIGHT, () => c.d(Math.max(2.4, m / 14)))),
+            style: `padding: 9px 6px 8px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; font-family: inherit;`,
+            onPick: () => this.setState({ pick: on ? null : key, sel: null, draw: null, cursor: null })
+          };
+        });
+      })(),
+
+      shapes: st.items.filter(i => !i.wire).map(i => {
+        const c = compOf(i);
+        return {
+          // Only flip lives in the transform now; sx/sy are baked into the
+          // geometry so stroke-width survives a resize untouched. The unscaled
+          // markup is what gets cached, so a resize drag reuses the parse.
+          transform: `translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}`,
+          nodes: scaleNodes(nodesFor(withInk(INK_CANVAS, () => i.text
+            ? TX(0, 0, ESC(i.label == null || i.label === '' ? 'Text' : i.label), i.fs)
+            : c.d(i.sw) + (i.label && showLabels ? TX(0, c.h / 2 + 20, ESC(i.label), 20) : ''))), i.sx, i.sy),
+          bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
+          selected: i.id === st.sel,
+          onDown: (e) => this.drag(e, i.id, 'move')
+        };
+      }),
+
+      wires: st.items.filter(i => i.wire).map(i => ({
+        hit: polyD(routePts(i.pts, i.route)),
+        nodes: nodesFor(withInk(INK_CANVAS, () => wireHtml(i, showLabels))),
+        onDown: (e) => this.drag(e, i.id, 'move')
+      })),
+
+      // Transform frame for a selected component. Everything is divided by the
+      // zoom so the handles keep a constant on-screen size, and the group
+      // carries only translate+rotate (no scale) so they stay square.
+      frame: (() => {
+        if (!sel || sel.wire) return null;
+        const c = compOf(sel), z = st.view.z;
+        const hw = c.w * sel.sx / 2, hh = c.h * sel.sy / 2;
+        const pad = 6 / z, hs = 9 / z;
+        const bx = -hw - pad, by = -hh - pad;
+        const SPOTS = [
+          [-1, -1, 'nwse-resize'], [0, -1, 'ns-resize'], [1, -1, 'nesw-resize'],
+          [-1, 0, 'ew-resize'], [1, 0, 'ew-resize'],
+          [-1, 1, 'nesw-resize'], [0, 1, 'ns-resize'], [1, 1, 'nwse-resize']
+        ];
+        return {
+          transform: `translate(${sel.x},${sel.y}) rotate(${sel.rot})`,
+          x: bx, y: by, w: 2 * (hw + pad), h: 2 * (hh + pad),
+          topY: by, rotY: by - 20 / z, hr: 5 / z, hs,
+          onRotate: (e) => this.rotate(e, sel.id),
+          handles: SPOTS.map(([hx, hy, cursor]) => ({
+            x: hx * (hw + pad) - hs / 2, y: hy * (hh + pad) - hs / 2, cursor,
+            onDown: (e) => this.resize(e, sel.id, hx, hy)
+          }))
+        };
+      })(),
+
+      // Vertex handles are only ever shown for the selected wire, so they can
+      // live in one flat list instead of nesting an sc-for inside the wires loop.
+      handles: (sel && sel.wire ? sel.pts : []).map((p, k) => ({
+        x: p.x, y: p.y,
+        onDown: (e) => this.drag(e, sel.id, k)
+      })),
+
+      drawing: !!st.draw,
+      drawNodes: !st.draw ? [] : nodesFor(withInk(INK_CANVAS, () => {
+        const pts = routePts(st.draw.pts, st.draft.route);
+        let out = st.draw.pts.length > 1 ? P(polyD(pts), st.draft.sw) : '';
+        const snapHit = st.ptSnap && st.cursor ? this.nearestTarget(st.cursor, null) : null;
+        const targetPt = snapHit || st.cursor;
+        if (targetPt) {
+          const tail = routePts([st.draw.pts[st.draw.pts.length - 1], targetPt], st.draft.route);
+          out += DASH(polyD(tail), st.draft.sw, '6 5');
+        }
+        return out + st.draw.pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#2e7d55"/>`).join('');
+      })),
+
+      hasProps: !!(sel || pickComp),
+      noProps: !(sel || pickComp),
+      propTitle: sel ? compOf(sel).name + ' (on canvas)' : pickComp ? pickComp.name : '',
+      pLabel: src.label || '', pScale: pSx, pRot: pRot, pSw: pSwv,
+      pScaleTxt: dimComp && !isWire ? `${Math.round(dimComp.w * pSx)} × ${Math.round(dimComp.h * pSy)}` : pSx.toFixed(2) + '×', pRotTxt: pRot + '°', pSwTxt: pSwv.toFixed(1) + 'px',
+      // Scale/rotation do nothing to a polyline wire, so those controls are
+      // hidden and replaced by the wire-specific ones below.
+      isWire: isWire,
+      showTransform: !isWire,
+      showWeight: !isText,
+      arrowBtns: [
+        { id: 'none', name: 'None' }, { id: 'mid', name: 'Middle' }, { id: 'end', name: 'At end' }
+      ].map(o => ({
+        name: o.name, style: segStyle((src.arrow || 'none') === o.id),
+        onPick: () => this.patch({ arrow: o.id })
+      })),
+      routeBtns: [
+        { id: 'straight', name: 'Straight' }, { id: 'ortho', name: 'Right-angle' }
+      ].map(o => ({
+        name: o.name, style: segStyle((src.route || 'straight') === o.id),
+        onPick: () => this.patch({ route: o.id })
+      })),
+      flipLabel: isWire ? 'Reverse' : 'Flip',
+      addLabel: sel ? 'Add another' : 'Add to canvas',
+      setLabel: (e) => this.patch({ label: e.target.value }),
+      setScale: (e) => { const v = parseFloat(e.target.value); this.patch({ sx: v, sy: v }); },
+      setRot: (e) => this.patch({ rot: parseInt(e.target.value, 10) }),
+      setSw: (e) => this.patch({ sw: parseFloat(e.target.value) }),
+      flipH: () => this.patch(isWire && sel ? { pts: sel.pts.slice().reverse() } : { flip: !src.flip }),
+      rot90: () => this.patch({ rot: ((pRot + 90 + 180) % 360) - 180 }),
+      addCenter: () => {
+        const key = st.pick || (sel && sel.key); if (!key) return;
+        const n = st.items.length;
+        const x = 150 + (n % 4) * 150, y = 120 + (Math.floor(n / 4) % 3) * 130;
+        if (key !== TEXT_KEY && IDX[key].wire) this.addWire(key, [{ x: x - 45, y }, { x: x + 45, y }]);
+        else this.setState({ pick: key }, () => this.place(x, y));
+      },
+      duplicate: () => {
+        if (!sel) return;
+        this.commit(null);
+        const copy = sel.wire
+          ? { ...sel, pts: sel.pts.map(p => ({ x: p.x + 40, y: p.y + 40 })) }
+          : { ...sel, x: sel.x + 40, y: sel.y + 40 };
+        this.setState(s => ({ items: s.items.concat({ ...copy, id: s.nextId }), nextId: s.nextId + 1, sel: s.nextId }));
+      },
+      removeSel: () => {
+        if (st.sel) this.remove();
+        else if (st.pick) this.setState({ pick: null });
+      },
+      deleteLabel: sel ? 'Delete' : 'Cancel tool'
+    };
+  }
+}
+</script>
+</body>
+</html>
