@@ -1223,8 +1223,11 @@ class Component extends DCLogic {
       }
     })));
     const b = this.exportBounds(pad);
+    // A standalone .svg is parsed as strict XML, where a bare `&` opens an
+    // entity reference — the `&display=swap` in the font URL would abort the
+    // parse. CDATA keeps the CSS verbatim and covers anything added later.
     const fontCss = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');\n  text { font-family: ${FONTS[this.fontKey]}; }`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x} ${b.y} ${b.w} ${b.h}" width="${b.w}" height="${b.h}">\n<defs>\n  <style>${fontCss}</style>\n</defs>\n${body}</svg>\n`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x} ${b.y} ${b.w} ${b.h}" width="${b.w}" height="${b.h}">\n<defs>\n  <style><![CDATA[${fontCss}]]></style>\n</defs>\n${body}</svg>\n`;
   }
 
   exportSvg = () => {
