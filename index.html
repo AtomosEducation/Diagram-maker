@@ -1125,6 +1125,11 @@ class Component extends DCLogic {
   onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
 
   drag(e, id, mode) {
+    // Every item carries an invisible hit box a little larger than itself. With
+    // a component armed the click is a placement, not a grab, so let it bubble
+    // to the canvas — otherwise the new part cannot be dropped touching (or
+    // overlapping) an existing one, which is exactly where it usually belongs.
+    if (this.state.pick) return;
     e.stopPropagation();
     const start = this.pt(e);
     const it = this.state.items.find(i => i.id === id);
