@@ -29,6 +29,7 @@ Then visit <http://localhost:8765/>.
 - Click to place components, drag to move, snap to grid and to connection points
 - Wire tool: click each corner, double-click to finish; straight or right-angle routing
 - Per-element label, size, rotation, flip and line weight
+- Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search
 - Export the artwork as SVG
