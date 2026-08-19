@@ -659,6 +659,12 @@ const LIB = [
       // \u2014 Loads & meters \u2014
       { id: 'bulb', name: 'Lamp', w: 90, h: 34, d: (s) => P('M-45 0 H-15 M15 0 H45', s) + C(0, 0, 15, s) + P('M-10.6 -10.6 L10.6 10.6 M10.6 -10.6 L-10.6 10.6', s) },
       { id: 'bulbfil', name: 'Lamp (filament)', w: 90, h: 36, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + P('M-9 5 C-5 -10 -2 9 0 -2 C2 -10 5 9 9 5', s) },
+      // Pictorial bulb, as drawn in textbook figures rather than the circle
+      // symbols above: glass envelope, filament, screw cap, leads out of the
+      // cap. Both states share one geometry and the same terminals, so a
+      // diagram can swap on for off without the wires moving.
+      { id: 'bulbon', name: 'Bulb (on)', w: 96, h: 84, t: [[-48,30],[48,30]], d: (s) => P('M-48 30 H-9 M9 30 H48', s) + C(0, -8, 22, s) + P('M-7 10 V-2 C-4 -14 -1 4 0 -6 C1 -14 4 4 7 -2 V10', s) + P('M-9 12 V16 M9 12 V16 M-9 16 H9 V30 H-9 Z M-9 21 H9 M-9 26 H9', s) + P('M0 -34 V-42 M18.4 -26.4 L24 -32 M-18.4 -26.4 L-24 -32 M26 -8 H34 M-26 -8 H-34 M18.4 10.4 L24 16 M-18.4 10.4 L-24 16', s) },
+      { id: 'bulboff', name: 'Bulb (off)', w: 96, h: 68, t: [[-48,30],[48,30]], d: (s) => P('M-48 30 H-9 M9 30 H48', s) + C(0, -8, 22, s) + P('M-7 10 V-2 C-4 -14 -1 4 0 -6 C1 -14 4 4 7 -2 V10', s) + P('M-9 12 V16 M9 12 V16 M-9 16 H9 V30 H-9 Z M-9 21 H9 M-9 26 H9', s) },
       { id: 'ammeter', name: 'Ammeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'A') },
       { id: 'milliammeter', name: 'Milliammeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'mA', 12) },
       { id: 'voltmeter', name: 'Voltmeter', w: 90, h: 34, d: (s) => P('M-45 0 H-16 M16 0 H45', s) + C(0, 0, 16, s) + TX(0, 0, 'V') },
