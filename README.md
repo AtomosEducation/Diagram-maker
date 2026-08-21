@@ -35,6 +35,9 @@ Then visit <http://localhost:8765/>.
 - Three subjects — Physics, Chemistry, Mathematics — across 12 units
 - Click to place components, drag to move, snap to grid and to connection points
 - Wire tool: click each corner, double-click to finish; straight or right-angle routing
+- Plane Geometry drawing tools — segment, ray, polygon, arc and circle, all drawn
+  by clicking on the canvas, with solid/dashed/dotted line styles and an
+  adjustable curvature on arcs
 - Per-element label, size, rotation, flip and line weight
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret

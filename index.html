@@ -227,6 +227,11 @@
                   <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
                     <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
                   </sc-if>
+                  <!-- A drawn circle arrives as an ellipse node; without this
+                       branch it renders in the export but not on the canvas. -->
+                  <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                  </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
                     <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
@@ -357,23 +362,41 @@
             </sc-if>
             <sc-if value="{{ isWire }}" hint-placeholder-val="{{ false }}">
               <div style="display: flex; flex-direction: column; gap: 8px;">
+                <sc-if value="{{ showArrow }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                    <span style="font-size: 12px; color: var(--fg-2);">{{ arrowTitle }}</span>
+                    <div style="display: flex; gap: 5px;">
+                      <sc-for list="{{ arrowBtns }}" as="a" hint-placeholder-count="3">
+                        <button onClick="{{ a.onPick }}" style="{{ a.style }}">{{ a.name }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
                 <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
-                  <span style="font-size: 12px; color: var(--fg-2);">Current arrow</span>
+                  <span style="font-size: 12px; color: var(--fg-2);">Line style</span>
                   <div style="display: flex; gap: 5px;">
-                    <sc-for list="{{ arrowBtns }}" as="a" hint-placeholder-count="3">
-                      <button onClick="{{ a.onPick }}" style="{{ a.style }}">{{ a.name }}</button>
+                    <sc-for list="{{ dashBtns }}" as="ds" hint-placeholder-count="3">
+                      <button onClick="{{ ds.onPick }}" style="{{ ds.style }}">{{ ds.name }}</button>
                     </sc-for>
                   </div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
-                  <span style="font-size: 12px; color: var(--fg-2);">Routing</span>
-                  <div style="display: flex; gap: 5px;">
-                    <sc-for list="{{ routeBtns }}" as="r" hint-placeholder-count="2">
-                      <button onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.name }}</button>
-                    </sc-for>
+                <sc-if value="{{ showBulge }}" hint-placeholder-val="{{ false }}">
+                  <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                    <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Curvature</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pBulgeTxt }}</span></span>
+                    <input type="range" min="-0.9" max="0.9" step="0.05" value="{{ pBulge }}" onChange="{{ setBulge }}" style="width: 100%;" />
+                  </label>
+                </sc-if>
+                <sc-if value="{{ showRouting }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                    <span style="font-size: 12px; color: var(--fg-2);">Routing</span>
+                    <div style="display: flex; gap: 5px;">
+                      <sc-for list="{{ routeBtns }}" as="r" hint-placeholder-count="2">
+                        <button onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.name }}</button>
+                      </sc-for>
+                    </div>
                   </div>
-                </div>
-                <div style="font-size: 11.5px; color: var(--fg-3); line-height: 1.55; padding: 0 2px;">Pick Wire, then click the canvas for each corner. Double-click or press Enter to finish, Esc to cancel.</div>
+                </sc-if>
+                <div style="font-size: 11.5px; color: var(--fg-3); line-height: 1.55; padding: 0 2px;">{{ drawHint }}</div>
               </div>
             </sc-if>
             <sc-if value="{{ showWeight }}" hint-placeholder-val="{{ true }}">
@@ -654,8 +677,112 @@ const ticks = (start, span, z) => {
   for (let v = Math.ceil(start / step) * step; v <= start + span; v += step) out.push(v);
   return out;
 };
+// ── Drawn geometry ────────────────────────────────────────────────────────
+// Segments, polygons, arcs and circles reuse the wire machinery: an ordered
+// list of points laid down by clicking. That buys the live preview, vertex
+// handles, dragging, point snapping and export for free, and `kind` decides
+// how those points are read back.
+const kindOf = (it) => (IDX[it.key] || {}).kind || 'poly';
+// Kinds that finish on their own once they have enough points; the rest run
+// until a double-click.
+const KIND_PTS = { seg: 2, arc: 2, circle: 2 };
+const DASHES = {
+  solid: () => '',
+  dashed: (sw) => `${(sw * 4.5).toFixed(1)} ${(sw * 3.2).toFixed(1)}`,
+  // A dot is a zero-length dash with a round cap.
+  dotted: (sw) => `0.01 ${(sw * 2.6).toFixed(1)}`
+};
+const dashFor = (sw, style) => (DASHES[style] || DASHES.solid)(sw);
+const strokeD = (d, sw, style) => {
+  const da = dashFor(sw, style);
+  return da ? `<path d="${d}" ${S(sw)} stroke-dasharray="${da}"/>` : P(d, sw);
+};
+const strokeC = (cx, cy, r, sw, style) => {
+  const da = dashFor(sw, style);
+  return da ? `<circle cx="${cx}" cy="${cy}" r="${r}" ${S(sw)} stroke-dasharray="${da}"/>` : C(cx, cy, r, sw);
+};
+const BULGE = (b) => (b == null ? 0.3 : b);
+// Perpendicular offset of an arc's midpoint from its chord. Positive bows the
+// arc to one side, negative to the other, and 0 is a straight line.
+const arcApex = (a, b, bulge) => {
+  const dx = b.x - a.x, dy = b.y - a.y, c = Math.hypot(dx, dy);
+  if (!c) return { x: a.x, y: a.y };
+  const h = c * BULGE(bulge);
+  // Sign matches the sweep flag used in arcD — verified against the rendered
+  // path, not assumed. Get it backwards and the bounds clip the arc away.
+  return { x: (a.x + b.x) / 2 + dy / c * h, y: (a.y + b.y) / 2 - dx / c * h };
+};
+const arcD = (a, b, bulge) => {
+  const c = Math.hypot(b.x - a.x, b.y - a.y), h = c * BULGE(bulge);
+  if (!c || Math.abs(h) < 0.01) return `M${a.x} ${a.y} L${b.x} ${b.y}`;
+  // Radius from chord and sagitta; the sweep flag picks the side to bow to.
+  const r = (c * c / 4 + h * h) / (2 * Math.abs(h));
+  const large = Math.abs(h) > c / 2 ? 1 : 0;
+  return `M${a.x} ${a.y} A${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} ${h > 0 ? 1 : 0} ${b.x} ${b.y}`;
+};
+const circleR = (it) => Math.hypot(it.pts[1].x - it.pts[0].x, it.pts[1].y - it.pts[0].y);
+// The invisible fat stroke used to grab an item has to follow the shape that
+// is actually drawn, or a circle could only be caught along its radius.
+const hitD = (it) => {
+  const kind = kindOf(it), p = it.pts;
+  if (kind === 'circle') {
+    const a = p[0], r = circleR(it);
+    return `M${a.x - r} ${a.y} A${r} ${r} 0 1 0 ${a.x + r} ${a.y} A${r} ${r} 0 1 0 ${a.x - r} ${a.y}`;
+  }
+  if (kind === 'arc') return arcD(p[0], p[1], it.bulge);
+  if (kind === 'polygon') return polyD(p) + ' Z';
+  return polyD(routePts(p, it.route));
+};
+// Points used when a drawable is added straight from the panel button rather
+// than clicked out on the canvas. A polygon needs three corners to be a shape
+// at all; everything else reads fine from two.
+const defaultPts = (key, x, y) => {
+  const kind = (IDX[key] || {}).kind;
+  if (kind === 'polygon') return [{ x: x, y: y - 52 }, { x: x + 50, y: y + 30 }, { x: x - 50, y: y + 30 }];
+  if (kind === 'circle') return [{ x: x, y: y }, { x: x + 52, y: y }];
+  return [{ x: x - 45, y: y }, { x: x + 45, y: y }];
+};
+const DRAW_HINTS = {
+  poly: 'Pick Wire, then click the canvas for each corner. Double-click or press Enter to finish, Esc to cancel.',
+  seg: 'Click the start, then the end. Direction and length follow the two clicks.',
+  polygon: 'Click each corner. Double-click or press Enter to close the shape, Esc to cancel.',
+  arc: 'Click the two end points, then set Curvature to bow the arc either way.',
+  circle: 'Click the centre, then click again to set the radius.'
+};
+
+const geomHtml = (it, kind, withLabel) => {
+  const p = it.pts, a = p[0], b = p[p.length - 1];
+  let out = '', at = null;
+  if (kind === 'circle') {
+    const r = circleR(it);
+    out = strokeC(a.x, a.y, r, it.sw, it.dash);
+    at = { x: a.x, y: a.y - r, a: 0 };
+  } else if (kind === 'arc') {
+    out = strokeD(arcD(a, b, it.bulge), it.sw, it.dash);
+    const q = arcApex(a, b, it.bulge);
+    at = { x: q.x, y: q.y, a: 0 };
+  } else if (kind === 'polygon') {
+    out = strokeD(polyD(p) + ' Z', it.sw, it.dash);
+    at = ptAt(p.concat([p[0]]), 0.5);
+  } else {
+    out = strokeD(polyD(p), it.sw, it.dash);
+    at = ptAt(p, 0.5);
+    const size = Math.max(7, it.sw * 4);
+    const prev = p[p.length - 2] || a;
+    if (it.arrow === 'end') out += AHEAD(b.x, b.y, Math.atan2(b.y - prev.y, b.x - prev.x), size);
+    if (it.arrow === 'mid') out += AHEAD(at.x, at.y, at.a, size);
+  }
+  if (withLabel && it.label && at) {
+    const perp = (at.a || 0) + Math.PI / 2;
+    out += TX(at.x - 15 * Math.cos(perp), at.y - 15 * Math.sin(perp), ESC(it.label), 18);
+  }
+  return out;
+};
+
 // Full markup for one wire: the run itself, its current arrow, and its label.
 const wireHtml = (it, withLabel) => {
+  const kind = kindOf(it);
+  if (kind !== 'poly') return geomHtml(it, kind, withLabel);
   const pts = routePts(it.pts, it.route);
   let out = P(polyD(pts), it.sw);
   const size = Math.max(7, it.sw * 4);
@@ -696,7 +823,16 @@ const itemTerms = (i) => i.wire
   : termOffsets(compOf(i), i.sx, i.sy, i.rot, i.flip).map(o => ({ x: i.x + o.x, y: i.y + o.y }));
 
 const wireBounds = (it) => {
-  const pts = routePts(it.pts, it.route);
+  const kind = kindOf(it);
+  // A circle reaches a radius past its centre and an arc bows past its chord,
+  // so neither is bounded by its own points.
+  if (kind === 'circle') {
+    const a = it.pts[0], r = circleR(it);
+    return { minX: a.x - r, maxX: a.x + r, minY: a.y - r, maxY: a.y + r };
+  }
+  const pts = kind === 'arc'
+    ? it.pts.concat([arcApex(it.pts[0], it.pts[1], it.bulge)])
+    : kind === 'poly' ? routePts(it.pts, it.route) : it.pts;
   return {
     minX: Math.min(...pts.map(p => p.x)), maxX: Math.max(...pts.map(p => p.x)),
     minY: Math.min(...pts.map(p => p.y)), maxY: Math.max(...pts.map(p => p.y))
@@ -844,6 +980,18 @@ const LIB = [
   ]},
   { id: 'mathematics', name: 'Mathematics', units: [
     { id: 'plane', name: 'Plane Geometry', comps: [
+      // Drawn by clicking on the canvas rather than dropped at a fixed size.
+      // `kind` is read back by geomHtml; the tile art below is only a preview.
+      { id: 'dseg', name: 'Segment (draw)', wire: true, kind: 'seg', defArrow: 'none', w: 130, h: 24,
+        d: (s) => P('M-58 0 H58', s) + DOT(-58, 0, 3.4) + DOT(58, 0, 3.4) },
+      { id: 'dray', name: 'Ray (draw)', wire: true, kind: 'seg', defArrow: 'end', w: 130, h: 24,
+        d: (s) => ARROW(-58, 0, 58, 0, s, 9) + DOT(-58, 0, 3.4) },
+      { id: 'dpolygon', name: 'Polygon (draw)', wire: true, kind: 'polygon', w: 120, h: 110,
+        d: (s) => P('M0 -50 L54 -12 L34 50 H-34 L-54 -12 Z', s) },
+      { id: 'darc', name: 'Arc (draw)', wire: true, kind: 'arc', w: 120, h: 80,
+        d: (s) => P('M-52 28 A58 58 0 0 1 52 28', s) + DOT(-52, 28, 3.4) + DOT(52, 28, 3.4) },
+      { id: 'dcircle', name: 'Circle (draw)', wire: true, kind: 'circle', w: 120, h: 120,
+        d: (s) => C(0, 0, 52, s) + DOT(0, 0, 3.4) },
       { id: 'point', name: 'Point', w: 30, h: 30, d: (s) => DOT(0, 0, 4) + TX(0, -14, 'A', 13) },
       { id: 'segment', name: 'Segment', w: 130, h: 24, d: (s) => P('M-58 0 H58', s) + DOT(-58, 0, 3.4) + DOT(58, 0, 3.4) },
       { id: 'rayline', name: 'Ray', w: 130, h: 24, d: (s) => ARROW(-58, 0, 58, 0, s, 9) + DOT(-58, 0, 3.4) },
@@ -893,7 +1041,7 @@ class Component extends DCLogic {
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight' }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3 }
   };
 
   componentDidMount() {
@@ -1140,7 +1288,7 @@ class Component extends DCLogic {
       return;
     }
     const c = IDX[key];
-    if (c.wire) { this.addWire(key, [{ x: x - 45, y }, { x: x + 45, y }]); return; }
+    if (c.wire) { this.addWire(key, defaultPts(key, x, y)); return; }
     const fit = this.snapByTerminals({ x, y }, termOffsets(c, d.sx, d.sy, d.rot, d.flip), null);
     if (fit) { x = fit.x; y = fit.y; }
     this.commit(null);
@@ -1154,7 +1302,11 @@ class Component extends DCLogic {
     this.commit(null);
     const d = this.state.draft;
     this.setState(s => ({
-      items: s.items.concat({ id: s.nextId, key, wire: true, pts, sw: d.sw, label: d.label, arrow: d.arrow, route: d.route }),
+      // A Ray is a Segment that starts out arrowed, so the tool's own default
+      // wins over the draft here.
+      items: s.items.concat({ id: s.nextId, key, wire: true, pts, sw: d.sw, label: d.label,
+        arrow: (IDX[key] || {}).defArrow != null ? IDX[key].defArrow : d.arrow,
+        route: d.route, dash: d.dash, bulge: d.bulge }),
       nextId: s.nextId + 1, sel: s.nextId, draw: null, cursor: null
     }));
   }
@@ -1185,7 +1337,12 @@ class Component extends DCLogic {
       const last = this.state.draw.pts[this.state.draw.pts.length - 1];
       // Clicking the last vertex again ends the run, same as a double-click.
       if (last.x === p.x && last.y === p.y) { this.finishWire(); return; }
-      this.setState(s => ({ draw: { ...s.draw, pts: s.draw.pts.concat(p) }, cursor: p }));
+      const pts = this.state.draw.pts.concat(p);
+      // A segment, arc or circle is complete on its second click, so it
+      // commits itself rather than waiting for a double-click.
+      const need = KIND_PTS[(IDX[this.state.draw.key] || {}).kind];
+      if (need && pts.length >= need) { this.addWire(this.state.draw.key, pts); return; }
+      this.setState(s => ({ draw: { ...s.draw, pts }, cursor: p }));
       return;
     }
     if (key && key !== TEXT_KEY && IDX[key].wire) {
@@ -1383,6 +1540,7 @@ class Component extends DCLogic {
 
     const dark = this.theme === 'dark';
     const isWire = !!(sel ? sel.wire : pickComp && pickComp.wire);
+    const drawKind = sel && sel.wire ? kindOf(sel) : (pickComp && pickComp.wire ? (pickComp.kind || 'poly') : 'poly');
     const isText = !!(sel ? sel.text : pickComp && pickComp.text);
     // Viewport-derived viewBox: width/height come from the measured pixel size
     // so one canvas unit is exactly `z` pixels and the rulers stay honest.
@@ -1550,7 +1708,7 @@ class Component extends DCLogic {
       }),
 
       wires: st.items.filter(i => i.wire).map(i => ({
-        hit: polyD(routePts(i.pts, i.route)),
+        hit: hitD(i),
         nodes: nodesFor(withInk(INK_CANVAS, () => wireHtml(i, showLabels))),
         onDown: (e) => this.drag(e, i.id, 'move')
       })),
@@ -1590,15 +1748,28 @@ class Component extends DCLogic {
 
       drawing: !!st.draw,
       drawNodes: !st.draw ? [] : nodesFor(withInk(INK_CANVAS, () => {
-        const pts = routePts(st.draw.pts, st.draft.route);
-        let out = st.draw.pts.length > 1 ? P(polyD(pts), st.draft.sw) : '';
+        const kind = (IDX[st.draw.key] || {}).kind || 'poly';
+        const dpts = st.draw.pts;
         const snapHit = st.ptSnap && st.cursor ? this.nearestTarget(st.cursor, null) : null;
         const targetPt = snapHit || st.cursor;
+        const dots = () => dpts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#a8790c"/>`).join('');
+        // Circles and arcs are previewed as the real shape against the live
+        // cursor, so what you see while drawing is what lands.
+        if (kind === 'circle' || kind === 'arc') {
+          if (!targetPt) return dots();
+          const a = dpts[0], prev = { pts: [a, targetPt], sw: st.draft.sw, dash: st.draft.dash, bulge: st.draft.bulge, key: st.draw.key };
+          return geomHtml(prev, kind, false) + dots();
+        }
+        const pts = kind === 'poly' ? routePts(dpts, st.draft.route) : dpts;
+        let out = dpts.length > 1 ? P(polyD(pts), st.draft.sw) : '';
+        if (kind === 'polygon' && dpts.length > 2) out += DASH(polyD([dpts[dpts.length - 1], dpts[0]]), st.draft.sw, '6 5');
         if (targetPt) {
-          const tail = routePts([st.draw.pts[st.draw.pts.length - 1], targetPt], st.draft.route);
+          const tail = kind === 'poly'
+            ? routePts([dpts[dpts.length - 1], targetPt], st.draft.route)
+            : [dpts[dpts.length - 1], targetPt];
           out += DASH(polyD(tail), st.draft.sw, '6 5');
         }
-        return out + st.draw.pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#a8790c"/>`).join('');
+        return out + dots();
       })),
 
       hasProps: !!(sel || pickComp),
@@ -1614,6 +1785,23 @@ class Component extends DCLogic {
       isWire: isWire,
       showTransform: !isWire,
       showWeight: !isText,
+      // Which of the wire-family controls apply depends on what is being drawn:
+      // a circle has no arrow, only a polyline can be right-angled, and only an
+      // arc has curvature.
+      drawKind: drawKind,
+      showArrow: drawKind === 'poly' || drawKind === 'seg',
+      showRouting: drawKind === 'poly',
+      showBulge: drawKind === 'arc',
+      arrowTitle: drawKind === 'poly' ? 'Current arrow' : 'Arrow',
+      drawHint: DRAW_HINTS[drawKind] || DRAW_HINTS.poly,
+      pBulge: BULGE(src.bulge), pBulgeTxt: Math.round(BULGE(src.bulge) * 100) + '%',
+      setBulge: (e) => this.patch({ bulge: parseFloat(e.target.value) }),
+      dashBtns: [
+        { id: 'solid', name: 'Solid' }, { id: 'dashed', name: 'Dashed' }, { id: 'dotted', name: 'Dotted' }
+      ].map(o => ({
+        name: o.name, style: segStyle((src.dash || 'solid') === o.id),
+        onPick: () => this.patch({ dash: o.id })
+      })),
       arrowBtns: [
         { id: 'none', name: 'None' }, { id: 'mid', name: 'Middle' }, { id: 'end', name: 'At end' }
       ].map(o => ({
@@ -1662,7 +1850,7 @@ class Component extends DCLogic {
         const key = st.pick || (sel && sel.key); if (!key) return;
         const n = st.items.length;
         const x = 150 + (n % 4) * 150, y = 120 + (Math.floor(n / 4) % 3) * 130;
-        if (key !== TEXT_KEY && IDX[key].wire) this.addWire(key, [{ x: x - 45, y }, { x: x + 45, y }]);
+        if (key !== TEXT_KEY && IDX[key].wire) this.addWire(key, defaultPts(key, x, y));
         else this.setState({ pick: key }, () => this.place(x, y));
       },
       duplicate: () => this.duplicateSel(),
