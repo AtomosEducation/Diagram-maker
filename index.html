@@ -168,7 +168,7 @@
                   <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                 </sc-if>
                 <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                  <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                 </sc-if>
               </sc-for>
             </svg>
@@ -233,7 +233,7 @@
                     <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                    <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                    <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
                 </sc-for>
               </g>
@@ -261,7 +261,7 @@
                     <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                    <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                    <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
                 </sc-for>
               </g>
@@ -526,6 +526,13 @@ const FONTS = { sans: 'DM Sans, sans-serif', serif: 'Times New Roman, Times, ser
 let FONT = FONTS.sans;
 const withFont = (f, fn) => { const prev = FONT; FONT = f; try { return fn(); } finally { FONT = prev; } };
 const TX = (x, y, t, fs) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none">${t}</text>`;
+// Text rotated about its own anchor, so a label pivots in place instead of
+// swinging away from what it labels.
+const TXR = (x, y, t, fs, deg) => {
+  const fx = +x.toFixed(2), fy = +y.toFixed(2);
+  if (!deg) return TX(fx, fy, t, fs);
+  return `<text x="${fx}" y="${fy}" text-anchor="middle" dominant-baseline="central" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none" transform="rotate(${deg.toFixed(2)} ${fx} ${fy})">${t}</text>`;
+};
 const ARROW = (x1, y1, x2, y2, sw, h) => {
   const a = Math.atan2(y2 - y1, x2 - x1), s = h || 8;
   const p1 = [x2 - s * Math.cos(a - 0.45), y2 - s * Math.sin(a - 0.45)];
@@ -697,7 +704,7 @@ const nodesMarkup = (nodes) => nodes.map(n => {
   const stroke = n.stroke === 'none' ? ' stroke="none"' : ` stroke="${n.stroke}" stroke-width="${n.sw}"${dash}`;
   if (n.isPath) return `<path d="${n.d}" fill="${n.fill}"${stroke}${n.stroke === 'none' ? '' : ' stroke-linecap="round" stroke-linejoin="round"'}/>`;
   if (n.isEllipse) return `<ellipse cx="${n.cx}" cy="${n.cy}" rx="${n.rx}" ry="${n.ry}" fill="${n.fill}"${stroke}/>`;
-  if (n.isText) return `<text x="${n.x}" y="${n.y}" text-anchor="middle" dominant-baseline="central" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}" fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
+  if (n.isText) return `<text x="${n.x}" y="${n.y}"${n.tr ? ` transform="${n.tr}"` : ''} text-anchor="middle" dominant-baseline="central" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}" fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
   return '';
 }).join('');
 
@@ -880,7 +887,14 @@ const geomHtml = (it, kind, withLabel) => {
     // A dimension's label can sit on either side of its line; everything else
     // keeps to the one side.
     const g = kind === 'dim' ? (it.lpos === 'below' ? -17 : 17) : 15;
-    out += TX(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), ESC(it.label), 18);
+    let deg = 0;
+    if (kind === 'dim') {
+      // Run the label along the line, but never upside down: past a quarter
+      // turn it reads better flipped back the other way.
+      deg = (at.a || 0) * 180 / Math.PI;
+      if (deg > 90) deg -= 180; else if (deg < -90) deg += 180;
+    }
+    out += TXR(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), ESC(it.label), 18, deg);
   }
   return out;
 };
