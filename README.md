@@ -45,6 +45,8 @@ Then visit <http://localhost:8765/>.
 - Label can sit above or below a component
 - Free-standing text placed anywhere on the canvas, rotatable to any angle,
   with vector bar, arrow, hat or dots drawn over it
+- Dimension tool — click two points to measure between them, with arrow, dot
+  or bar ends and the label above or below the line
 - Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search

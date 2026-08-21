@@ -314,10 +314,14 @@
         </div>
         <!-- Free-standing text, always reachable: it belongs to the canvas
              rather than to any component, so it is not in the palette. -->
-        <div style="padding: 0 12px 12px;">
+        <div style="padding: 0 12px 12px; display: flex; gap: 6px;">
           <button onClick="{{ addText }}" title="Place a text label anywhere on the canvas" style="{{ textPanelStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M4 7V5h16v2M12 5v14M9 19h6"></path></svg>
             {{ textPanelLabel }}
+          </button>
+          <button onClick="{{ addDim }}" title="Measure between two points on the canvas" style="{{ dimPanelStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M3 12h18M3 12l4-3M3 12l4 3M21 12l-4-3M21 12l-4 3"></path></svg>
+            {{ dimPanelLabel }}
           </button>
         </div>
         <sc-if value="{{ hasProps }}" hint-placeholder-val="{{ true }}">
@@ -378,6 +382,16 @@
                     <div style="display: flex; gap: 5px;">
                       <sc-for list="{{ arrowBtns }}" as="a" hint-placeholder-count="3">
                         <button onClick="{{ a.onPick }}" style="{{ a.style }}">{{ a.name }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ showDimEnds }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                    <span style="font-size: 12px; color: var(--fg-2);">Ends</span>
+                    <div style="display: flex; gap: 5px;">
+                      <sc-for list="{{ dimEndBtns }}" as="de" hint-placeholder-count="3">
+                        <button onClick="{{ de.onPick }}" style="{{ de.style }}">{{ de.name }}</button>
                       </sc-for>
                     </div>
                   </div>
@@ -739,7 +753,7 @@ const ticks = (start, span, z) => {
 const kindOf = (it) => (IDX[it.key] || {}).kind || 'poly';
 // Kinds that finish on their own once they have enough points; the rest run
 // until a double-click.
-const KIND_PTS = { seg: 2, arc: 2, circle: 2 };
+const KIND_PTS = { seg: 2, arc: 2, circle: 2, dim: 2 };
 const DASHES = {
   solid: () => '',
   dashed: (sw) => `${(sw * 4.5).toFixed(1)} ${(sw * 3.2).toFixed(1)}`,
@@ -800,6 +814,7 @@ const hitD = (it) => {
   }
   if (kind === 'arc') return arcD(p[0], p[1], it.bulge);
   if (kind === 'polygon') return polyD(p) + ' Z';
+  if (kind === 'dim') return polyD([p[0], p[1]]);
   return polyD(routePts(p, it.route));
 };
 // Points used when a drawable is added straight from the panel button rather
@@ -816,7 +831,8 @@ const DRAW_HINTS = {
   seg: 'Click the start, then the end. Direction and length follow the two clicks.',
   polygon: 'Click each corner. Double-click or press Enter to close the shape, Esc to cancel.',
   arc: 'Click the two end points, then set Curvature to bow the arc either way.',
-  circle: 'Click the centre, then click again to set the radius.'
+  circle: 'Click the centre, then click again to set the radius.',
+  dim: 'Click the two points to measure between. The label sits above the line, or below it.'
 };
 
 const geomHtml = (it, kind, withLabel) => {
@@ -830,6 +846,24 @@ const geomHtml = (it, kind, withLabel) => {
     out = strokeD(arcD(a, b, it.bulge), it.sw, it.dash);
     const q = arcApex(a, b, it.bulge);
     at = { x: q.x, y: q.y, a: 0 };
+  } else if (kind === 'dim') {
+    const ang = Math.atan2(b.y - a.y, b.x - a.x), size = AH_SIZE(it);
+    const end = it.dimEnd || 'arrow';
+    out = strokeD(polyD([a, b]), it.sw, it.dash);
+    if (end === 'arrow') {
+      // Heads point outwards, away from the span being measured.
+      out += AHEAD2(a.x, a.y, ang + Math.PI, size, it.ahStyle, it.sw)
+           + AHEAD2(b.x, b.y, ang, size, it.ahStyle, it.sw);
+    } else if (end === 'dot') {
+      const r = Math.max(2.4, it.sw * 1.9);
+      out += DOT(a.x, a.y, r) + DOT(b.x, b.y, r);
+    } else {
+      const t = size * 0.5, px = -Math.sin(ang) * t, py = Math.cos(ang) * t;
+      const f = (v) => v.toFixed(1);
+      out += P(`M${f(a.x - px)} ${f(a.y - py)} L${f(a.x + px)} ${f(a.y + py)}`
+             + ` M${f(b.x - px)} ${f(b.y - py)} L${f(b.x + px)} ${f(b.y + py)}`, it.sw);
+    }
+    at = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, a: ang };
   } else if (kind === 'polygon') {
     out = strokeD(polyD(p) + ' Z', it.sw, it.dash);
     at = ptAt(p.concat([p[0]]), 0.5);
@@ -843,7 +877,10 @@ const geomHtml = (it, kind, withLabel) => {
   }
   if (withLabel && it.label && at) {
     const perp = (at.a || 0) + Math.PI / 2;
-    out += TX(at.x - 15 * Math.cos(perp), at.y - 15 * Math.sin(perp), ESC(it.label), 18);
+    // A dimension's label can sit on either side of its line; everything else
+    // keeps to the one side.
+    const g = kind === 'dim' ? (it.lpos === 'below' ? -17 : 17) : 15;
+    out += TX(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), ESC(it.label), 18);
   }
   return out;
 };
@@ -1192,6 +1229,13 @@ const LIB = [
 const IDX = {};
 LIB.forEach(s => s.units.forEach(u => u.comps.forEach(c => { IDX[s.id + '/' + u.id + '/' + c.id] = c; })));
 
+// A dimension belongs to the drawing rather than to any one subject, so it is
+// registered straight into IDX instead of sitting in a unit's palette. Being
+// in IDX is what lets it reuse the drawable path: two clicks, a live preview,
+// vertex handles and point snapping, all unchanged.
+const DIM_KEY = '@dim';
+IDX[DIM_KEY] = { id: 'dim', name: 'Dimension', wire: true, kind: 'dim', w: 120, h: 34 };
+
 class Component extends DCLogic {
   state = {
     subject: 'physics', unit: 'electricity', pick: null,
@@ -1206,7 +1250,7 @@ class Component extends DCLogic {
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none' }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow' }
   };
 
   componentDidMount() {
@@ -1471,7 +1515,7 @@ class Component extends DCLogic {
       // wins over the draft here.
       items: s.items.concat({ id: s.nextId, key, wire: true, pts, sw: d.sw, label: d.label,
         arrow: (IDX[key] || {}).defArrow != null ? IDX[key].defArrow : d.arrow,
-        route: d.route, dash: d.dash, bulge: d.bulge, ahs: d.ahs, ahStyle: d.ahStyle }),
+        route: d.route, dash: d.dash, bulge: d.bulge, ahs: d.ahs, ahStyle: d.ahStyle, dimEnd: d.dimEnd, lpos: d.lpos }),
       nextId: s.nextId + 1, sel: s.nextId, draw: null, cursor: null
     }));
   }
@@ -1745,8 +1789,11 @@ class Component extends DCLogic {
       addText: () => this.setState(s => ({ pick: s.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })),
       // Same tool as the toolbar button, surfaced full-width in the panel. The
       // label doubles as the instruction once the tool is armed.
-      textPanelLabel: st.pick === TEXT_KEY ? 'Click the canvas to place' : 'Add text',
-      textPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer;`,
+      textPanelLabel: st.pick === TEXT_KEY ? 'Placing…' : 'Text',
+      addDim: () => this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })),
+      dimPanelLabel: st.pick === DIM_KEY ? 'Click 2 points' : 'Dimension',
+      dimPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1; height: 32px; padding: 0 10px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === DIM_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
+      textPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1; height: 32px; padding: 0 10px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer;`,
 
       themeClass: dark ? 'thm thm-dark' : 'thm thm-light',
       isDark: dark, isLight: !dark,
@@ -1958,7 +2005,18 @@ class Component extends DCLogic {
       showRouting: drawKind === 'poly',
       showBulge: drawKind === 'arc',
       // No point offering head controls when there is no head.
-      showArrowHead: (drawKind === 'poly' || drawKind === 'seg') && (src.arrow || 'none') !== 'none',
+      showDimEnds: drawKind === 'dim',
+      dimEndBtns: [
+        { id: 'arrow', name: 'Arrows' }, { id: 'dot', name: 'Dots' }, { id: 'bar', name: 'Bars' }
+      ].map(o => ({
+        name: o.name, style: segStyle((src.dimEnd || 'arrow') === o.id),
+        onPick: () => this.patch({ dimEnd: o.id })
+      })),
+      // Head size and style matter for a dimension too, but only while its
+      // ends are actually arrows.
+      showArrowHead: drawKind === 'dim'
+        ? (src.dimEnd || 'arrow') === 'arrow'
+        : ((drawKind === 'poly' || drawKind === 'seg') && (src.arrow || 'none') !== 'none'),
       pAhs: AH_SIZE(src), pAhsTxt: AH_SIZE(src) + 'px',
       setAhs: (e) => this.patch({ ahs: parseFloat(e.target.value) }),
       ahStyleBtns: [
@@ -1995,7 +2053,7 @@ class Component extends DCLogic {
       labelRef: this.attachLabelInput,
       // A wire's label rides its midpoint and a text item *is* its label, so
       // neither has an above/below to choose.
-      showLabelPos: !isWire && !isText,
+      showLabelPos: (!isWire && !isText) || drawKind === 'dim',
       // Vector notation belongs to a free-standing text item, whose label is
       // the whole element; a component's label is an annotation beside it.
       showDeco: isText,
@@ -2005,7 +2063,7 @@ class Component extends DCLogic {
         onPick: () => this.patch({ deco: o.id })
       })),
       lposBtns: [{ id: 'above', name: 'Above' }, { id: 'below', name: 'Below' }].map(o => ({
-        name: o.name, style: segStyle((src.lpos || 'below') === o.id),
+        name: o.name, style: segStyle((src.lpos || (drawKind === 'dim' ? 'above' : 'below')) === o.id),
         onPick: () => this.patch({ lpos: o.id })
       })),
       symTabs: SYMSETS.map(s => ({
