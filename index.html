@@ -327,6 +327,16 @@
             <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
               <span style="font-size: 12px; color: var(--fg-2);">Label</span>
               <input ref="{{ labelRef }}" value="{{ pLabel }}" onChange="{{ setLabel }}" placeholder="e.g. R₁ = 10 Ω" style="height: 30px; padding: 0 10px; font-family: inherit; font-size: 12.5px; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;" style-focus="border-color: var(--accent-fg);" />
+              <sc-if value="{{ showDeco }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 7px;">
+                  <span style="font-size: 11.5px; color: var(--fg-3);">Above the text</span>
+                  <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                    <sc-for list="{{ decoBtns }}" as="dc" hint-placeholder-count="6">
+                      <button onClick="{{ dc.onPick }}" title="{{ dc.title }}" style="{{ dc.style }}">{{ dc.name }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
               <sc-if value="{{ showLabelPos }}" hint-placeholder-val="{{ true }}">
                 <div style="display: flex; align-items: center; gap: 6px;">
                   <span style="font-size: 11.5px; color: var(--fg-3); flex: 0 0 auto;">Position</span>
@@ -863,9 +873,37 @@ const EXPORT_PAD = 32;
 // A free-standing text item is not in the component library, so it gets a
 // sentinel key and a synthetic descriptor sized from its own text.
 const TEXT_KEY = '@text';
+// ── Notation drawn over a text item ───────────────────────────────────────
+// Vector bars, arrows and hats are drawn as geometry rather than composed
+// from Unicode combining marks: a combining mark attaches to one character,
+// so it cannot span "AB" as a single bar, and the glyphs are missing from
+// most sans faces. Drawn marks span the whole label and export cleanly.
+const TEXT_DECOS = [
+  { id: 'none', name: 'None' }, { id: 'bar', name: 'Bar' }, { id: 'arrow', name: 'Arrow' },
+  { id: 'hat', name: 'Hat' }, { id: 'dot', name: 'Dot' }, { id: 'ddot', name: 'Double dot' }
+];
+const textLabel = (i) => String(i.label == null || i.label === '' ? 'Text' : i.label);
+const decoHtml = (label, fs, deco) => {
+  if (!deco || deco === 'none') return '';
+  const w = Math.max(12, String(label).length * fs * 0.56) * 0.92;
+  const y = -fs * 0.62, t = Math.max(1, fs * 0.075), r = Math.max(1.2, fs * 0.075);
+  const f = (v) => v.toFixed(1);
+  if (deco === 'bar') return P(`M${f(-w / 2)} ${f(y)} H${f(w / 2)}`, t);
+  if (deco === 'arrow') return P(`M${f(-w / 2)} ${f(y)} H${f(w / 2)}`, t)
+    + AHEAD2(w / 2, y, 0, Math.max(4, fs * 0.3), 'solid', t);
+  if (deco === 'hat') { const k = Math.max(3, fs * 0.22); return P(`M${f(-k)} ${f(y + k * 0.8)} L0 ${f(y)} L${f(k)} ${f(y + k * 0.8)}`, t); }
+  if (deco === 'dot') return DOT(0, y, r);
+  if (deco === 'ddot') { const d = Math.max(2, fs * 0.16); return DOT(-d, y, r) + DOT(d, y, r); }
+  return '';
+};
+const textHtml = (i) => TX(0, 0, ESC(textLabel(i)), i.fs) + decoHtml(textLabel(i), i.fs, i.deco);
+
 const textComp = (i) => {
-  const s = String(i.label == null || i.label === '' ? 'Text' : i.label);
-  return { name: 'Text label', w: Math.max(16, s.length * i.fs * 0.56), h: i.fs * 1.3, t: [[0, 0]] };
+  const s = textLabel(i);
+  // A decoration sits above the glyphs, so the box has to grow to keep the
+  // export from cropping it off.
+  const tall = i.deco && i.deco !== 'none';
+  return { name: 'Text label', w: Math.max(16, s.length * i.fs * 0.56), h: i.fs * (tall ? 1.8 : 1.3), t: [[0, 0]] };
 };
 const compOf = (i) => i.text ? textComp(i) : IDX[i.key];
 const termOffsets = (c, sx, sy, rot, flip) => {
@@ -1168,7 +1206,7 @@ class Component extends DCLogic {
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid' }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none' }
   };
 
   componentDidMount() {
@@ -1409,7 +1447,7 @@ class Component extends DCLogic {
     if (key === TEXT_KEY) {
       this.commit(null);
       this.setState(s => ({
-        items: s.items.concat({ id: s.nextId, text: true, x, y, label: d.label || 'Text', fs: d.fs, sx: d.sx, sy: d.sy, rot: d.rot, flip: false }),
+        items: s.items.concat({ id: s.nextId, text: true, x, y, label: d.label || 'Text', fs: d.fs, sx: d.sx, sy: d.sy, rot: d.rot, flip: false, deco: d.deco }),
         nextId: s.nextId + 1, sel: s.nextId
       }));
       return;
@@ -1622,7 +1660,7 @@ class Component extends DCLogic {
         body += `  <g>${wireHtml(i, showLabels)}</g>\n`;
       } else {
         const src = i.text
-          ? TX(0, 0, ESC(i.label == null || i.label === '' ? 'Text' : i.label), i.fs)
+          ? textHtml(i)
           : c.d(i.sw) + compLabel(i, c, showLabels);
         const nodes = scaleNodes(toNodes(src), i.sx, i.sy);
         body += `  <g transform="translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}">${nodesMarkup(nodes)}</g>\n`;
@@ -1826,7 +1864,7 @@ class Component extends DCLogic {
           // markup is what gets cached, so a resize drag reuses the parse.
           transform: `translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}`,
           nodes: scaleNodes(nodesFor(withInk(INK_CANVAS, () => i.text
-            ? TX(0, 0, ESC(i.label == null || i.label === '' ? 'Text' : i.label), i.fs)
+            ? textHtml(i)
             : c.d(i.sw) + compLabel(i, c, showLabels))), i.sx, i.sy),
           bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
           selected: i.id === st.sel,
@@ -1958,6 +1996,14 @@ class Component extends DCLogic {
       // A wire's label rides its midpoint and a text item *is* its label, so
       // neither has an above/below to choose.
       showLabelPos: !isWire && !isText,
+      // Vector notation belongs to a free-standing text item, whose label is
+      // the whole element; a component's label is an annotation beside it.
+      showDeco: isText,
+      decoBtns: TEXT_DECOS.map(o => ({
+        name: o.name, title: o.name === 'None' ? 'No mark above the text' : o.name + ' above the text',
+        style: `flex: 1 1 30%; min-width: 62px; height: 28px; padding: 0 4px; font-family: inherit; font-size: 11.5px; color: ${(src.deco || 'none') === o.id ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${(src.deco || 'none') === o.id ? 'var(--accent)' : 'var(--field)'}; border: 1px solid ${(src.deco || 'none') === o.id ? 'var(--accent)' : 'var(--field-line)'}; border-radius: 5px; cursor: pointer; white-space: nowrap;`,
+        onPick: () => this.patch({ deco: o.id })
+      })),
       lposBtns: [{ id: 'above', name: 'Above' }, { id: 'below', name: 'Below' }].map(o => ({
         name: o.name, style: segStyle((src.lpos || 'below') === o.id),
         onPick: () => this.patch({ lpos: o.id })

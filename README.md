@@ -43,7 +43,8 @@ Then visit <http://localhost:8765/>.
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
 - Label can sit above or below a component
-- Free-standing text placed anywhere on the canvas, rotatable to any angle
+- Free-standing text placed anywhere on the canvas, rotatable to any angle,
+  with vector bar, arrow, hat or dots drawn over it
 - Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search
