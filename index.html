@@ -87,7 +87,7 @@
     </div>
     <div style="flex: 1;"></div>
     <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
-      <button onClick="{{ toggleSnap }}" title="Snap to the grid — hold Alt to place freely" style="{{ snapBtnStyle }}" style-hover="background: var(--ctl-hover);">
+      <button onClick="{{ toggleSnap }}" title="{{ snapTitle }}" style="{{ snapBtnStyle }}" style-hover="background: var(--ctl-hover);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9h16M4 15h16M9 4v16M15 4v16"></path></svg>
         Snap {{ snapLabel }}
       </button>
@@ -1485,7 +1485,7 @@ class Component extends DCLogic {
     view: { x: 0, y: 0, z: 1 }, vp: { w: 760, h: 480 }, rulers: true,
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
-    draw: null, cursor: null, cursorFree: false,
+    draw: null, cursor: null, cursorFree: false, altDown: false,
     draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow' }
   });
 
@@ -1508,6 +1508,7 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this._key = (e) => {
+      if (e.altKey && !this.state.altDown) this.setState({ altDown: true });
       const active = document.activeElement;
       const typing = !!(active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable));
       if (typing) {
@@ -1541,15 +1542,26 @@ class Component extends DCLogic {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); this.redo(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && !typing) { e.preventDefault(); this.duplicateSel(); }
     };
-    this._keyUp = (e) => { if (e.code === 'Space') this._space = false; };
+    this._keyUp = (e) => {
+      if (e.code === 'Space') this._space = false;
+      if (!e.altKey && this.state.altDown) this.setState({ altDown: false });
+    };
+    // Alt+Tab takes the key-up away with it, which would leave the toolbar
+    // showing snapping suspended for good. Losing focus clears the held keys.
+    this._blur = () => {
+      this._space = false;
+      if (this.state.altDown) this.setState({ altDown: false });
+    };
     window.addEventListener('keydown', this._key);
     window.addEventListener('keyup', this._keyUp);
+    window.addEventListener('blur', this._blur);
     this.syncPageBg();
   }
   componentDidUpdate() { this.syncPageBg(); }
   componentWillUnmount() {
     window.removeEventListener('keydown', this._key);
     window.removeEventListener('keyup', this._keyUp);
+    window.removeEventListener('blur', this._blur);
     if (this._ro) this._ro.disconnect();
   }
 
@@ -2132,6 +2144,8 @@ class Component extends DCLogic {
       ? { physics: '#6ccb95', chemistry: '#e5a663', mathematics: '#7ab6e8' }
       : { physics: '#2b7d55', chemistry: '#a06a1c', mathematics: '#2f6ea8' };
     const q = st.query.trim().toLowerCase();
+    // Snapping actually in force right now, toggle minus the Alt override.
+    const snapLive = st.snap && !st.altDown;
 
     // Where the next click actually lands. A connection point wins over the
     // grid, so only one of the two markers is ever shown.
@@ -2149,7 +2163,7 @@ class Component extends DCLogic {
     // A cross on the grid intersection the click will snap to. The arms are
     // divided by the zoom so the marker keeps its size on screen.
     const gridHintD = (() => {
-      if (ptHint || !st.snap || st.cursorFree || !st.cursor) return '';
+      if (ptHint || !snapLive || st.cursorFree || !st.cursor) return '';
       if (!st.pick && !st.draw) return '';
       const a = 7 / st.view.z, x = st.cursor.x, y = st.cursor.y;
       return `M${x - a} ${y} H${x + a} M${x} ${y - a} V${y + a}`;
@@ -2157,7 +2171,12 @@ class Component extends DCLogic {
 
     return {
       breadcrumb: `${sub.name} · ${unit.name}`,
-      snapLabel: st.snap ? 'on' : 'off',
+      // Alt suspends snapping, so the button reports what is actually in
+      // force rather than only what the toggle is set to.
+      snapLabel: snapLive ? 'on' : 'off',
+      snapTitle: st.altDown
+        ? 'Snapping suspended while Alt is held'
+        : 'Snap to the grid — hold Alt to place freely',
       gridLabel: gm === 'lines' ? 'Grid' : gm === 'dots' ? 'Dots' : 'Plain',
       gridFill: gm === 'none' ? '#ffffff' : `url(#g-${gm})`,
 
@@ -2292,7 +2311,7 @@ class Component extends DCLogic {
       unitName: unit.name,
       query: st.query,
       setQuery: (e) => this.setState({ query: e.target.value }),
-      snapBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.snap ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.snap ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+      snapBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${snapLive ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${snapLive ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
 
       subjects: LIB.map(s => ({
         name: s.name, count: s.units.length,
