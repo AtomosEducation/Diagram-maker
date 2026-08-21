@@ -377,6 +377,9 @@
             <sc-for list="{{ handles }}" as="hd" hint-placeholder-count="0">
               <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="5" fill="#ffffff" stroke="#a8790c" stroke-width="1.6" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
             </sc-for>
+            <sc-if value="{{ gridHint }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ gridHint }}" fill="none" stroke="#a8790c" stroke-width="1.3" vector-effect="non-scaling-stroke" style="pointer-events: none;"></path>
+            </sc-if>
             <sc-if value="{{ snapHint }}" hint-placeholder-val="{{ false }}">
               <g style="pointer-events: none;">
                 <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="8" fill="none" stroke="#1d6fb8" stroke-width="1.6"></circle>
@@ -1482,7 +1485,7 @@ class Component extends DCLogic {
     view: { x: 0, y: 0, z: 1 }, vp: { w: 760, h: 480 }, rulers: true,
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
-    draw: null, cursor: null,
+    draw: null, cursor: null, cursorFree: false,
     draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow' }
   });
 
@@ -1820,8 +1823,10 @@ class Component extends DCLogic {
   onCanvasMove = (e) => {
     if (!this.state.draw && !this.state.pick) return;
     const p = this.pt(e);
-    const c = this.state.cursor;
-    if (!c || c.x !== p.x || c.y !== p.y) this.setState({ cursor: p });
+    const c = this.state.cursor, free = !!e.altKey;
+    if (!c || c.x !== p.x || c.y !== p.y || free !== this.state.cursorFree) {
+      this.setState({ cursor: p, cursorFree: free });
+    }
   };
 
   onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
@@ -2128,6 +2133,28 @@ class Component extends DCLogic {
       : { physics: '#2b7d55', chemistry: '#a06a1c', mathematics: '#2f6ea8' };
     const q = st.query.trim().toLowerCase();
 
+    // Where the next click actually lands. A connection point wins over the
+    // grid, so only one of the two markers is ever shown.
+    const ptHint = (() => {
+      if (st.snapAt) return st.snapAt;
+      if (!st.ptSnap || !st.cursor) return null;
+      if (st.draw) return this.nearestTarget(st.cursor, null);
+      if (pickComp && !pickComp.wire) {
+        const fit = this.snapByTerminals(st.cursor, termOffsets(pickComp, st.draft.sx, st.draft.sy, st.draft.rot, st.draft.flip), null);
+        return fit ? fit.at : null;
+      }
+      if (pickComp) return this.nearestTarget(st.cursor, null);
+      return null;
+    })();
+    // A cross on the grid intersection the click will snap to. The arms are
+    // divided by the zoom so the marker keeps its size on screen.
+    const gridHintD = (() => {
+      if (ptHint || !st.snap || st.cursorFree || !st.cursor) return '';
+      if (!st.pick && !st.draw) return '';
+      const a = 7 / st.view.z, x = st.cursor.x, y = st.cursor.y;
+      return `M${x - a} ${y} H${x + a} M${x} ${y - a} V${y + a}`;
+    })();
+
     return {
       breadcrumb: `${sub.name} · ${unit.name}`,
       snapLabel: st.snap ? 'on' : 'off',
@@ -2252,17 +2279,11 @@ class Component extends DCLogic {
       togglePtSnap: () => this.setState(s => ({ ptSnap: !s.ptSnap, snapAt: null })),
       // Marker showing which connection point the next click or the current
       // drag will latch onto.
-      snapHint: (() => {
-        if (st.snapAt) return st.snapAt;
-        if (!st.ptSnap || !st.cursor) return null;
-        if (st.draw) return this.nearestTarget(st.cursor, null);
-        if (pickComp && !pickComp.wire) {
-          const fit = this.snapByTerminals(st.cursor, termOffsets(pickComp, st.draft.sx, st.draft.sy, st.draft.rot, st.draft.flip), null);
-          return fit ? fit.at : null;
-        }
-        if (pickComp) return this.nearestTarget(st.cursor, null);
-        return null;
-      })(),
+      snapHint: ptHint,
+      // Where the next click will land on the grid. Hidden while Alt suspends
+      // snapping, and while a connection point has the click instead, since
+      // that is where the part would actually go.
+      gridHint: gridHintD,
       cycleGrid: () => this.setState({ grid: gm === 'lines' ? 'dots' : gm === 'dots' ? 'none' : 'lines' }),
       clearCanvas: () => { this.commit(null); this.setState({ items: [], sel: null, draw: null, cursor: null }); },
       exportSvg: this.exportSvg,
