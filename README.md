@@ -42,6 +42,8 @@ Then visit <http://localhost:8765/>.
 - Plane Geometry drawing tools — segment, ray, polygon, arc and circle, all drawn
   by clicking on the canvas, with solid/dashed/dotted line styles and an
   adjustable curvature on arcs
+- Thumbnail strip of everything on the canvas, so any element can be selected
+  from the Properties panel without hunting for it
 - Per-element label, size, rotation, flip and line weight
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret

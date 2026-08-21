@@ -420,6 +420,30 @@
             {{ dimPanelLabel }}
           </button>
         </div>
+        <sc-if value="{{ hasThumbs }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 0 12px 12px;">
+            <div style="font-size: 11.5px; color: var(--fg-3); padding: 0 2px 7px;">On the canvas · {{ thumbCount }}</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <sc-for list="{{ thumbs }}" as="th" hint-placeholder-count="0">
+                <button onClick="{{ th.onPick }}" title="{{ th.title }}" style="{{ th.style }}" style-hover="border-color: var(--accent-line);">
+                  <svg viewBox="{{ th.viewBox }}" width="100%" height="100%" style="display: block;">
+                    <sc-for list="{{ th.nodes }}" as="n" hint-placeholder-count="0">
+                      <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                        <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                      </sc-if>
+                      <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                      </sc-if>
+                      <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
+                        <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                      </sc-if>
+                    </sc-for>
+                  </svg>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
         <sc-if value="{{ hasProps }}" hint-placeholder-val="{{ true }}">
           <div style="padding: 4px 12px 16px; display: flex; flex-direction: column; gap: 8px;">
             <!-- Not a <label>: a click on a character chip inside one would be
@@ -2446,6 +2470,45 @@ class Component extends DCLogic {
       flipLabel: isWire ? 'Reverse' : 'Flip',
       addLabel: sel ? 'Add another' : 'Add to canvas',
       setLabel: (e) => this.patch({ label: e.target.value }),
+      // ── Canvas contents ───────────────────────────────────────────────
+      // One tile per element, so a part buried under a wire or off to the
+      // side can still be picked without hunting for it on the canvas.
+      hasThumbs: st.items.length > 0,
+      thumbCount: st.items.length,
+      thumbs: st.items.map(i => {
+        const ink = dark ? INK_ICON : INK_ICON_LIGHT;
+        let viewBox, nodes, name;
+        if (i.wire) {
+          const b = wireBounds(i);
+          const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+          const m = Math.max(b.maxX - b.minX, b.maxY - b.minY) / 2 + 10;
+          viewBox = `${cx - m} ${cy - m} ${m * 2} ${m * 2}`;
+          // Thicken for the tile, or a hairline vanishes at this size.
+          nodes = nodesFor(withInk(ink, () => wireHtml({ ...i, sw: Math.max(2.4, m / 14), label: '' }, false)));
+          name = (IDX[i.key] || {}).name || 'Wire';
+        } else if (i.text) {
+          const c = textComp(i);
+          const m = Math.max(c.w, c.h) / 2 + 6;
+          viewBox = `${-m} ${-m} ${m * 2} ${m * 2}`;
+          nodes = nodesFor(withInk(ink, () => textHtml(i)));
+          name = 'Text';
+        } else {
+          const c = IDX[i.key] || { w: 40, h: 40, d: () => '', name: '?' };
+          const m = Math.max(c.w, c.h) / 2 + 8;
+          viewBox = `${-m} ${-m} ${m * 2} ${m * 2}`;
+          nodes = nodesFor(withInk(ink, () => c.d(Math.max(2.4, m / 14))));
+          name = c.name;
+        }
+        const on = i.id === st.sel;
+        const lbl = i.text ? textLabel(i) : (i.label || '');
+        return {
+          viewBox, nodes,
+          title: name + (lbl ? ' — ' + lbl : ''),
+          style: `width: 40px; height: 40px; padding: 4px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 8px; cursor: pointer; flex: 0 0 auto;`,
+          onPick: () => this.setState({ sel: i.id, pick: null, draw: null, cursor: null, symTab: null })
+        };
+      }),
+
       labelRef: this.attachLabelInput,
       // A wire's label rides its midpoint and a text item *is* its label, so
       // neither has an above/below to choose.
