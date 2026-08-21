@@ -49,7 +49,8 @@ Then visit <http://localhost:8765/>.
   or bar ends and the label above or below the line
 - Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Settings popover — grid size (snapping follows at half steps), default line
-  width, text size, label size and export margin
+  width, text size, label size and export margin, remembered between sessions
+  along with the theme, grid style, typeface and snap toggles
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search
 - Export the artwork as SVG

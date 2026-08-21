@@ -158,7 +158,7 @@
     <div style="position: fixed; top: 62px; right: 14px; z-index: 41; width: 300px; max-height: 76vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 34px var(--canvas-shadow); padding: 14px; display: flex; flex-direction: column; gap: 10px;">
       <div style="display: flex; align-items: baseline; justify-content: space-between;">
         <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Settings</div>
-        <div style="font-size: 11px; color: var(--fg-3);">applies to this diagram</div>
+        <div style="font-size: 11px; color: var(--fg-3);">remembered on this device</div>
       </div>
       <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
         <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Grid size</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ gridSizeTxt }}</span></span>
@@ -967,6 +967,52 @@ const wireHtml = (it, withLabel) => {
 // library. Offsets are returned in canvas units, already scaled/rotated.
 const SNAP_R = 14;
 const EXPORT_PAD = 32;
+
+// ── Preferences ───────────────────────────────────────────────────────────
+// Settings persist, the drawing never does: reopening the app should restore
+// how you work, not silently resurrect a diagram you thought you had closed.
+const PREFS_KEY = 'diagram-maker.prefs.v1';
+const GRID_SIZES = [5, 10, 20, 25, 50];
+const prefNum = (v, lo, hi, d) => (typeof v === 'number' && isFinite(v) && v >= lo && v <= hi) ? v : d;
+const prefOne = (v, list, d) => list.indexOf(v) >= 0 ? v : d;
+const prefBool = (v, d) => typeof v === 'boolean' ? v : d;
+const loadPrefs = () => {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || typeof p !== 'object') return null;
+    // Every value is validated on the way back in, so a stale entry from an
+    // older build, or one edited by hand, cannot put the app into a state its
+    // own controls are unable to reach. null means "never chosen", which is
+    // what lets the theme, grid and font props stay in charge of the default.
+    return {
+      gridSize: prefOne(p.gridSize, GRID_SIZES, 20),
+      labelFs: prefNum(p.labelFs, 10, 30, 20),
+      exportPad: prefNum(p.exportPad, 0, 80, EXPORT_PAD),
+      sw: prefNum(p.sw, 1, 4, 1.8),
+      fs: prefNum(p.fs, 10, 48, 20),
+      theme: prefOne(p.theme, ['dark', 'light'], null),
+      grid: prefOne(p.grid, ['lines', 'dots', 'none'], null),
+      font: prefOne(p.font, ['sans', 'serif'], null),
+      snap: prefBool(p.snap, true),
+      ptSnap: prefBool(p.ptSnap, true),
+      rulers: prefBool(p.rulers, true)
+    };
+  } catch (err) {
+    // Storage can be disabled or unavailable; that is not worth surfacing.
+    return null;
+  }
+};
+const withPrefs = (base) => {
+  const p = loadPrefs();
+  if (!p) return base;
+  return { ...base,
+    gridSize: p.gridSize, labelFs: p.labelFs, exportPad: p.exportPad,
+    theme: p.theme, grid: p.grid, font: p.font,
+    snap: p.snap, ptSnap: p.ptSnap, rulers: p.rulers,
+    draft: { ...base.draft, sw: p.sw, fs: p.fs } };
+};
 // A free-standing text item is not in the component library, so it gets a
 // sentinel key and a synthetic descriptor sized from its own text.
 const TEXT_KEY = '@text';
@@ -1297,7 +1343,7 @@ const DIM_KEY = '@dim';
 IDX[DIM_KEY] = { id: 'dim', name: 'Dimension', wire: true, kind: 'dim', w: 120, h: 34 };
 
 class Component extends DCLogic {
-  state = {
+  state = withPrefs({
     subject: 'physics', unit: 'electricity', pick: null,
     items: [], sel: null, nextId: 1,
     grid: null, theme: null, font: null, snap: true, ptSnap: true, snapAt: null, query: '',
@@ -1313,7 +1359,24 @@ class Component extends DCLogic {
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null,
     draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow' }
-  };
+  });
+
+  // Written from renderVals, the one place that runs after every state change,
+  // so no individual handler has to remember to save. The comparison keeps it
+  // to an actual write only when something changed.
+  _prefsJson = null;
+  savePrefs() {
+    const st = this.state;
+    const json = JSON.stringify({
+      gridSize: st.gridSize, labelFs: st.labelFs, exportPad: st.exportPad,
+      sw: st.draft.sw, fs: st.draft.fs,
+      theme: st.theme, grid: st.grid, font: st.font,
+      snap: st.snap, ptSnap: st.ptSnap, rulers: st.rulers
+    });
+    if (json === this._prefsJson) return;
+    this._prefsJson = json;
+    try { localStorage.setItem(PREFS_KEY, json); } catch (err) { /* storage disabled or full */ }
+  }
 
   componentDidMount() {
     this._key = (e) => {
@@ -1792,6 +1855,7 @@ class Component extends DCLogic {
 
   renderVals() {
     LABEL_FS = this.state.labelFs;
+    this.savePrefs();
     const st = this.state, sub = this.subject, unit = this.unit;
     const sel = this.selItem;
     // The text tool has no library entry, so it borrows a synthetic descriptor
