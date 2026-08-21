@@ -518,6 +518,37 @@ const ZIG = (x0, y, w, n, amp, sw) => {
   for (let i = 0; i < n * 2; i++) d += `L${x0 + step * (i + 1)} ${y + (i % 2 ? amp : -amp)} `;
   return P(d, sw);
 };
+// Sampled function plot. `fn` takes a canvas x and returns a height in canvas
+// units measured upwards, so the caller thinks in graph terms. Samples that
+// are not finite or that run past `clip` lift the pen, which is what breaks
+// tan and its relatives cleanly at their asymptotes instead of drawing a
+// spike across the gap.
+const PLOTD = (x0, x1, n, fn, clip) => {
+  let d = '', pen = false;
+  for (let i = 0; i <= n; i++) {
+    const x = x0 + (x1 - x0) * (i / n), y = fn(x);
+    if (!isFinite(y) || (clip != null && Math.abs(y) > clip)) { pen = false; continue; }
+    d += `${pen ? 'L' : 'M'}${x.toFixed(1)} ${(-y).toFixed(1)} `;
+    pen = true;
+  }
+  return d.trim();
+};
+const PLOT = (x0, x1, n, fn, sw, clip) => {
+  const d = PLOTD(x0, x1, n, fn, clip);
+  return d ? P(d, sw) : '';
+};
+// Shared scale for the trig graphs: one radian is RAD px wide, so π lands on
+// 60 and 2π on 120. Every graph in the unit uses it, which means two of them
+// stacked on the canvas line up.
+const RAD = 120 / (2 * Math.PI);
+const TRIGAXES = (sw) => ARROW(-128, 0, 128, 0, sw, 8) + ARROW(0, 66, 0, -66, sw, 8);
+const TRIGTICKS = () => TX(60, 15, 'π', 11) + TX(120, 15, '2π', 11)
+  + TX(-60, 15, '−π', 11) + TX(-120, 15, '−2π', 11)
+  + TX(122, -13, 'x', 11) + TX(-13, -58, 'y', 11);
+// Vertical asymptotes, drawn light and dashed behind the curve.
+const ASYM = (xs, y, sw) => DASH(xs.map(x => `M${x} ${-y} V${y}`).join(' '), Math.max(0.7, sw * 0.55), '5 4');
+const CLAMP = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
 const SINE = (x0, w, amp, cycles, sw) => {
   let d = `M${x0} 0 `;
   for (let i = 1; i <= 64; i++) { const t = i / 64; d += `L${x0 + w * t} ${-amp * Math.sin(t * cycles * 2 * Math.PI)} `; }
@@ -1042,6 +1073,72 @@ const LIB = [
       { id: 'straight', name: 'Line y = mx + c', w: 190, h: 130, d: (s) => P('M-86 52 L86 -52', s) },
       { id: 'parabola', name: 'Parabola', w: 170, h: 140, d: (s) => P('M-74 -62 C-30 66 30 66 74 -62', s) },
       { id: 'dashdrop', name: 'Projection lines', w: 130, h: 110, d: (s) => DASH('M-56 -44 H50 M50 -44 V46', s, '5 5') + DOT(50, -44, 4) }
+    ]},
+    { id: 'trig', name: 'Trigonometric Functions', comps: [
+      // One radian is RAD px and one unit of y is AMP px, so every graph below
+      // shares a scale and they line up if stacked on the canvas.
+      // — Graphs —
+      { id: 'sinx', name: 'y = sin x', w: 272, h: 150, d: (s) => TRIGAXES(s)
+        + PLOT(-120, 120, 140, (x) => 42 * Math.sin(x / RAD), s) + TRIGTICKS() },
+      { id: 'cosx', name: 'y = cos x', w: 272, h: 150, d: (s) => TRIGAXES(s)
+        + PLOT(-120, 120, 140, (x) => 42 * Math.cos(x / RAD), s) + TRIGTICKS() },
+      { id: 'tanx', name: 'y = tan x', w: 272, h: 150, d: (s) => TRIGAXES(s)
+        + ASYM([-90, -30, 30, 90], 60, s)
+        + PLOT(-118, 118, 300, (x) => 20 * Math.tan(x / RAD), s, 60) + TRIGTICKS() },
+      { id: 'cosecx', name: 'y = cosec x', w: 272, h: 150, d: (s) => TRIGAXES(s)
+        + ASYM([-120, -60, 0, 60, 120], 60, s)
+        + DASH(PLOTD(-120, 120, 140, (x) => 42 * Math.sin(x / RAD)), Math.max(0.7, s * 0.55), '4 4')
+        + PLOT(-118, 118, 300, (x) => 42 / Math.sin(x / RAD), s, 60) + TRIGTICKS() },
+      { id: 'secx', name: 'y = sec x', w: 272, h: 150, d: (s) => TRIGAXES(s)
+        + ASYM([-90, -30, 30, 90], 60, s)
+        + DASH(PLOTD(-120, 120, 140, (x) => 42 * Math.cos(x / RAD)), Math.max(0.7, s * 0.55), '4 4')
+        + PLOT(-118, 118, 300, (x) => 42 / Math.cos(x / RAD), s, 60) + TRIGTICKS() },
+      { id: 'cotx', name: 'y = cot x', w: 272, h: 150, d: (s) => TRIGAXES(s)
+        + ASYM([-120, -60, 0, 60, 120], 60, s)
+        + PLOT(-118, 118, 300, (x) => 20 / Math.tan(x / RAD), s, 60) + TRIGTICKS() },
+      // — Inverse graphs —
+      // Domain [-1, 1] on x, principal value on y, both dashed at the bounds.
+      { id: 'asinx', name: 'y = sin⁻¹ x', w: 190, h: 170, d: (s) => ARROW(-84, 0, 84, 0, s, 8) + ARROW(0, 74, 0, -74, s, 8)
+        + DASH('M-60 -50 H60 M-60 50 H60 M-60 -50 V50 M60 -50 V50', Math.max(0.7, s * 0.55), '4 4')
+        + PLOT(-60, 60, 120, (x) => 31.8 * Math.asin(CLAMP(x / 60, -1, 1)), s)
+        + TX(66, 14, '1', 11) + TX(-66, 14, '−1', 11) + TX(-20, -50, 'π/2', 11) + TX(-22, 50, '−π/2', 11) },
+      { id: 'acosx', name: 'y = cos⁻¹ x', w: 190, h: 170, d: (s) => ARROW(-84, 0, 84, 0, s, 8) + ARROW(0, 74, 0, -74, s, 8)
+        + DASH('M-60 -100 H60 M-60 -50 H60 M-60 -100 V0 M60 -100 V0', Math.max(0.7, s * 0.55), '4 4')
+        + PLOT(-60, 60, 120, (x) => 31.8 * Math.acos(CLAMP(x / 60, -1, 1)), s)
+        + TX(66, 14, '1', 11) + TX(-66, 14, '−1', 11) + TX(-16, -100, 'π', 11) + TX(-20, -50, 'π/2', 11) },
+      { id: 'atanx', name: 'y = tan⁻¹ x', w: 220, h: 150, d: (s) => ARROW(-100, 0, 100, 0, s, 8) + ARROW(0, 62, 0, -62, s, 8)
+        + DASH('M-96 -50 H96 M-96 50 H96', Math.max(0.7, s * 0.55), '4 4')
+        + PLOT(-96, 96, 160, (x) => 31.8 * Math.atan(x / 20), s)
+        + TX(-20, -50, 'π/2', 11) + TX(-22, 50, '−π/2', 11) + TX(94, -12, 'x', 11) },
+      // — Reference figures —
+      { id: 'unitcircle', name: 'Unit circle', w: 200, h: 200, d: (s) => {
+          const r = 68, a = Math.PI / 4, px = r * Math.cos(a), py = r * Math.sin(a);
+          return ARROW(-92, 0, 92, 0, s, 8) + ARROW(0, 92, 0, -92, s, 8) + C(0, 0, r, s)
+            + P(`M0 0 L${px.toFixed(1)} ${(-py).toFixed(1)}`, s)
+            + DASH(`M${px.toFixed(1)} ${(-py).toFixed(1)} V0 M${px.toFixed(1)} ${(-py).toFixed(1)} H0`, Math.max(0.7, s * 0.55), '4 4')
+            + P('M22 0 A22 22 0 0 0 15.6 -15.6', s) + DOT(px, -py, 3.4)
+            // Each label sits beside the segment it names: cos θ under the
+            // horizontal run, sin θ outside the circle next to the vertical.
+            + TX(30, -12, 'θ', 12) + TX(px / 2, 17, 'cos θ', 11) + TX(px + 26, -py / 2, 'sin θ', 11);
+        } },
+      { id: 'trigtri', name: 'Right triangle (θ)', w: 210, h: 150, d: (s) => P('M-84 52 H74 V-46 Z', s)
+        + P('M58 52 V36 H74', s) + P('M-60 52 A24 24 0 0 0 -66 34', s)
+        + TX(-52, 40, 'θ', 12) + TX(-6, 66, 'adjacent', 11) + TX(96, 4, 'opposite', 11) + TX(-16, -12, 'hypotenuse', 11) },
+      { id: 'astc', name: 'Quadrant signs (ASTC)', w: 190, h: 190, d: (s) => ARROW(-88, 0, 88, 0, s, 8) + ARROW(0, 88, 0, -88, s, 8)
+        + TX(46, -46, 'A', 17) + TX(-46, -46, 'S', 17) + TX(-46, 46, 'T', 17) + TX(46, 46, 'C', 17)
+        + TX(46, -26, 'all', 10) + TX(-46, -26, 'sin', 10) + TX(-46, 66, 'tan', 10) + TX(46, 66, 'cos', 10) },
+      { id: 'ampperiod', name: 'Amplitude & period', w: 272, h: 170, d: (s) => ARROW(-128, 0, 128, 0, s, 8) + ARROW(0, 70, 0, -70, s, 8)
+        + PLOT(-120, 120, 140, (x) => 42 * Math.sin(x / RAD), s)
+        + DASH('M-120 -42 H120 M0 -62 H120 M120 -62 V0', Math.max(0.7, s * 0.55), '4 4')
+        + ARROW(-96, 0, -96, -42, s, 7) + TX(-80, -22, 'A', 12)
+        + ARROW(0, -62, 120, -62, s, 7) + TX(60, -74, 'period 2π', 11) },
+      { id: 'stdangle', name: 'Angle in standard position', w: 200, h: 170, d: (s) => {
+          const a = 2.2, r = 74;
+          return ARROW(-92, 0, 92, 0, s, 8) + ARROW(0, 76, 0, -76, s, 8)
+            + ARROW(0, 0, r * Math.cos(a), -r * Math.sin(a), s, 9)
+            + P('M30 0 A30 30 0 0 0 ' + (30 * Math.cos(a)).toFixed(1) + ' ' + (-30 * Math.sin(a)).toFixed(1), s)
+            + TX(6, -38, 'θ', 13);
+        } }
     ]},
     { id: 'solids', name: 'Solid Figures', comps: [
       { id: 'cube', name: 'Cube', w: 130, h: 130, d: (s) => P('M-52 -34 H36 V54 H-52 Z M-52 -34 L-20 -58 H68 L36 -34 M68 -58 V30 L36 54', s) },
