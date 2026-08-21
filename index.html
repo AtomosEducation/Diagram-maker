@@ -116,6 +116,10 @@
         </sc-if>
         {{ themeLabel }}
       </button>
+      <button onClick="{{ toggleSettings }}" title="Document settings" style="{{ settingsBtnStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"></path></svg>
+        Settings
+      </button>
       <button onClick="{{ clearCanvas }}" style="height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-3); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="color: var(--danger); background: var(--danger-bg);">Clear</button>
       <button onClick="{{ exportSvg }}" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="background: var(--accent-2); border-color: var(--accent-2);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11M8 11l4 4 4-4M4 19h16"></path></svg>
@@ -148,6 +152,44 @@
       <button onClick="{{ u.onPick }}" style="{{ u.style }}">{{ u.name }}</button>
     </sc-for>
   </div>
+
+  <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; inset: 0; z-index: 40;" onClick="{{ closeSettings }}"></div>
+    <div style="position: fixed; top: 62px; right: 14px; z-index: 41; width: 300px; max-height: 76vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 34px var(--canvas-shadow); padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between;">
+        <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Settings</div>
+        <div style="font-size: 11px; color: var(--fg-3);">applies to this diagram</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+        <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Grid size</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ gridSizeTxt }}</span></span>
+        <div style="display: flex; gap: 5px;">
+          <sc-for list="{{ gridBtns }}" as="gb" hint-placeholder-count="5">
+            <button onClick="{{ gb.onPick }}" style="{{ gb.style }}">{{ gb.name }}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Snapping steps at half the grid.</span>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+        <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Line width</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ cfgSwTxt }}</span></span>
+        <input type="range" min="1" max="4" step="0.2" value="{{ cfgSw }}" onChange="{{ onCfgSw }}" style="width: 100%;" />
+        <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Used by newly placed elements.</span>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+        <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Text size</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ cfgFsTxt }}</span></span>
+        <input type="range" min="10" max="48" step="1" value="{{ cfgFs }}" onChange="{{ onCfgFs }}" style="width: 100%;" />
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+        <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Label size</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ cfgLabelFsTxt }}</span></span>
+        <input type="range" min="10" max="30" step="1" value="{{ cfgLabelFs }}" onChange="{{ onCfgLabelFs }}" style="width: 100%;" />
+        <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Every element label on the canvas.</span>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+        <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Export margin</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ cfgPadTxt }}</span></span>
+        <input type="range" min="0" max="80" step="4" value="{{ cfgPad }}" onChange="{{ onCfgPad }}" style="width: 100%;" />
+      </label>
+      <button onClick="{{ resetSettings }}" style="height: 32px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Reset to defaults</button>
+    </div>
+  </sc-if>
 
   <div style="flex: 1; display: flex; min-height: 0;">
 
@@ -209,10 +251,10 @@
           </sc-if>
           <svg ref="{{ svgRef }}" viewBox="{{ viewBox }}" preserveAspectRatio="none" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onDoubleClick="{{ onCanvasDouble }}" style="display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none;">
             <defs>
-              <pattern id="g-lines" width="20" height="20" patternUnits="userSpaceOnUse">
-                <path d="M20 0 H0 V20" fill="none" stroke="#ded9cb" stroke-width="1"></path>
+              <pattern id="g-lines" width="{{ gridSize }}" height="{{ gridSize }}" patternUnits="userSpaceOnUse">
+                <path d="{{ gridPath }}" fill="none" stroke="#ded9cb" stroke-width="1"></path>
               </pattern>
-              <pattern id="g-dots" width="20" height="20" patternUnits="userSpaceOnUse">
+              <pattern id="g-dots" width="{{ gridSize }}" height="{{ gridSize }}" patternUnits="userSpaceOnUse">
                 <circle cx="1" cy="1" r="1.15" fill="#b9b3a2"></circle>
               </pattern>
             </defs>
@@ -439,7 +481,7 @@
             <sc-if value="{{ showWeight }}" hint-placeholder-val="{{ true }}">
             <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
               <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Line weight</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pSwTxt }}</span></span>
-              <input type="range" min="1" max="4" step="0.2" value="{{ pSw }}" onChange="{{ setSw }}" style="width: 100%;" />
+              <input type="range" min="1" max="4" step="0.2" value="{{ pSw }}" onChange="{{ cfgSw }}" style="width: 100%;" />
             </label>
             </sc-if>
             <div style="display: flex; gap: 8px;">
@@ -525,6 +567,10 @@ const ELL = (cx, cy, rx, ry, sw, dash) => `<ellipse cx="${cx}" cy="${cy}" rx="${
 const FONTS = { sans: 'DM Sans, sans-serif', serif: 'Times New Roman, Times, serif' };
 let FONT = FONTS.sans;
 const withFont = (f, fn) => { const prev = FONT; FONT = f; try { return fn(); } finally { FONT = prev; } };
+// Label type size is ambient for the same reason the typeface is: the shape
+// builders are plain functions with no access to state. Both render entry
+// points set it before they build anything.
+let LABEL_FS = 20;
 const TX = (x, y, t, fs) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none">${t}</text>`;
 // Text rotated about its own anchor, so a label pivots in place instead of
 // swinging away from what it labels.
@@ -609,7 +655,7 @@ const ESC = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const compLabel = (it, comp, show) => {
   if (!show || !it.label) return '';
   const off = comp.lgap != null ? comp.lgap : comp.h / 2 + 20;
-  return TX(0, it.lpos === 'above' ? -off : off, ESC(it.label), 20);
+  return TX(0, it.lpos === 'above' ? -off : off, ESC(it.label), LABEL_FS);
 };
 
 // ── String markup → plain node descriptors ────────────────────────────────
@@ -894,7 +940,7 @@ const geomHtml = (it, kind, withLabel) => {
       deg = (at.a || 0) * 180 / Math.PI;
       if (deg > 90) deg -= 180; else if (deg < -90) deg += 180;
     }
-    out += TXR(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), ESC(it.label), 18, deg);
+    out += TXR(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), ESC(it.label), LABEL_FS, deg);
   }
   return out;
 };
@@ -911,7 +957,7 @@ const wireHtml = (it, withLabel) => {
   if (withLabel && it.label) {
     const q = ptAt(pts, 0.5);
     const perp = q.a + Math.PI / 2;
-    out += TX(q.x - 15 * Math.cos(perp), q.y - 15 * Math.sin(perp), ESC(it.label), 18);
+    out += TX(q.x - 15 * Math.cos(perp), q.y - 15 * Math.sin(perp), ESC(it.label), LABEL_FS);
   }
   return out;
 };
@@ -1257,6 +1303,8 @@ class Component extends DCLogic {
     grid: null, theme: null, font: null, snap: true, ptSnap: true, snapAt: null, query: '',
     // Which character palette is open under the Label field, if any.
     symTab: null,
+    // Document-wide settings, edited from the Settings popover.
+    gridSize: 20, labelFs: 20, exportPad: EXPORT_PAD, settingsOpen: false,
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
     // factor in px per canvas unit; `vp` is the live pixel size of the canvas
     // element, measured so the viewBox aspect always matches it exactly.
@@ -1362,7 +1410,7 @@ class Component extends DCLogic {
   }
 
   zoomFit() {
-    const vp = this.state.vp, b = this.exportBounds(EXPORT_PAD);
+    const vp = this.state.vp, b = this.exportBounds(this.state.exportPad);
     const z = Math.min(8, Math.max(0.15, Math.min(vp.w / b.w, vp.h / b.h) * 0.92));
     this.setState({ view: { x: b.x + b.w / 2 - vp.w / 2 / z, y: b.y + b.h / 2 - vp.h / 2 / z, z } });
   }
@@ -1416,7 +1464,7 @@ class Component extends DCLogic {
   }
   pt(e) {
     const r = this.rawPt(e);
-    const q = this.state.snap ? 10 : 1;
+    const q = this.state.snap ? this.state.gridSize / 2 : 1;
     return { x: Math.round(r.x / q) * q, y: Math.round(r.y / q) * q };
   }
 
@@ -1710,6 +1758,7 @@ class Component extends DCLogic {
   }
 
   svgMarkup(pad) {
+    LABEL_FS = this.state.labelFs;
     const showLabels = this.props.showLabels !== false;
     let body = '';
     withFont(FONTS[this.fontKey], () => withInk(INK_CANVAS, () => this.state.items.forEach(i => {
@@ -1733,7 +1782,7 @@ class Component extends DCLogic {
   }
 
   exportSvg = () => {
-    const blob = new Blob([this.svgMarkup(EXPORT_PAD)], { type: 'image/svg+xml' });
+    const blob = new Blob([this.svgMarkup(this.state.exportPad)], { type: 'image/svg+xml' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${this.state.subject}-${this.state.unit}-diagram.svg`;
@@ -1742,6 +1791,7 @@ class Component extends DCLogic {
   };
 
   renderVals() {
+    LABEL_FS = this.state.labelFs;
     const st = this.state, sub = this.subject, unit = this.unit;
     const sel = this.selItem;
     // The text tool has no library entry, so it borrows a synthetic descriptor
@@ -1768,7 +1818,7 @@ class Component extends DCLogic {
     // Viewport-derived viewBox: width/height come from the measured pixel size
     // so one canvas unit is exactly `z` pixels and the rulers stay honest.
     const vb = { x: st.view.x, y: st.view.y, w: st.vp.w / st.view.z, h: st.vp.h / st.view.z };
-    const eb = this.exportBounds(EXPORT_PAD);
+    const eb = this.exportBounds(this.state.exportPad);
     FONT = FONTS[this.fontKey];
     const iconBtn = (on) => `display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; font-family: inherit; color: ${on ? 'var(--fg-2)' : 'var(--fg-3)'}; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: ${on ? 'pointer' : 'default'}; opacity: ${on ? 1 : 0.45}; flex: 0 0 auto;`;
     const segStyle = (on) => `flex: 1; height: 30px; padding: 0 4px; font-family: inherit; font-size: 11.5px; color: ${on ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${on ? 'var(--accent)' : 'var(--field)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--field-line)'}; border-radius: 5px; cursor: pointer; white-space: nowrap;`;
@@ -1853,6 +1903,32 @@ class Component extends DCLogic {
       onCanvasMove: this.onCanvasMove,
       onCanvasDouble: this.onCanvasDouble,
       toggleSnap: () => this.setState(s => ({ snap: !s.snap })),
+
+      // ── Settings ──────────────────────────────────────────────────────
+      settingsOpen: st.settingsOpen,
+      toggleSettings: () => this.setState(s2 => ({ settingsOpen: !s2.settingsOpen })),
+      closeSettings: () => this.setState({ settingsOpen: false }),
+      settingsBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.settingsOpen ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.settingsOpen ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+      gridSize: st.gridSize,
+      gridSizeTxt: st.gridSize + ' px',
+      // The grid path is rebuilt with the pattern tile so the lines meet.
+      gridPath: `M${st.gridSize} 0 H0 V${st.gridSize}`,
+      gridBtns: [5, 10, 20, 25, 50].map(v => ({
+        name: String(v), style: segStyle(st.gridSize === v),
+        onPick: () => this.setState({ gridSize: v })
+      })),
+      cfgSw: st.draft.sw, cfgSwTxt: st.draft.sw.toFixed(1) + 'px',
+      onCfgSw: (e) => this.setState(s2 => ({ draft: { ...s2.draft, sw: parseFloat(e.target.value) } })),
+      cfgFs: st.draft.fs, cfgFsTxt: st.draft.fs + 'px',
+      onCfgFs: (e) => this.setState(s2 => ({ draft: { ...s2.draft, fs: parseFloat(e.target.value) } })),
+      cfgLabelFs: st.labelFs, cfgLabelFsTxt: st.labelFs + 'px',
+      onCfgLabelFs: (e) => this.setState({ labelFs: parseFloat(e.target.value) }),
+      cfgPad: st.exportPad, cfgPadTxt: st.exportPad + 'px',
+      onCfgPad: (e) => this.setState({ exportPad: parseFloat(e.target.value) }),
+      resetSettings: () => this.setState(s2 => ({
+        gridSize: 20, labelFs: 20, exportPad: EXPORT_PAD,
+        draft: { ...s2.draft, sw: 1.8, fs: 20 }
+      })),
       ptSnapLabel: st.ptSnap ? 'on' : 'off',
       ptSnapBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.ptSnap ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.ptSnap ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
       togglePtSnap: () => this.setState(s => ({ ptSnap: !s.ptSnap, snapAt: null })),
