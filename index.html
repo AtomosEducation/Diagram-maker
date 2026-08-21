@@ -307,6 +307,14 @@
           <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Properties</div>
           <div style="font-size: 11.5px; color: var(--accent-fg);">{{ propTitle }}</div>
         </div>
+        <!-- Free-standing text, always reachable: it belongs to the canvas
+             rather than to any component, so it is not in the palette. -->
+        <div style="padding: 0 12px 12px;">
+          <button onClick="{{ addText }}" title="Place a text label anywhere on the canvas" style="{{ textPanelStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M4 7V5h16v2M12 5v14M9 19h6"></path></svg>
+            {{ textPanelLabel }}
+          </button>
+        </div>
         <sc-if value="{{ hasProps }}" hint-placeholder-val="{{ true }}">
           <div style="padding: 4px 12px 16px; display: flex; flex-direction: column; gap: 8px;">
             <!-- Not a <label>: a click on a character chip inside one would be
@@ -1412,6 +1420,10 @@ class Component extends DCLogic {
       textOn: st.pick === TEXT_KEY,
       textBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
       addText: () => this.setState(s => ({ pick: s.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })),
+      // Same tool as the toolbar button, surfaced full-width in the panel. The
+      // label doubles as the instruction once the tool is armed.
+      textPanelLabel: st.pick === TEXT_KEY ? 'Click the canvas to place' : 'Add text',
+      textPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer;`,
 
       themeClass: dark ? 'thm thm-dark' : 'thm thm-light',
       isDark: dark, isLight: !dark,
