@@ -9,8 +9,15 @@ optics, geometry — and exporting them as clean SVG for print and study materia
 | --- | --- |
 | `index.html` | The whole app: markup, styles and component logic |
 | `support.js` | Runtime the template is built against |
+| `icon.svg` | App icon; the source the other two are rendered from |
+| `favicon.ico` | 32px fallback, also serves the bare `/favicon.ico` request |
+| `apple-touch-icon.png` | 180px icon for iOS home screens |
 | `.thumbnail` | App thumbnail |
 | `uploads/` | Reference images |
+
+The icon links live in the `<helmet>` block, not the document `<head>` — the
+runtime rebuilds `<head>` from `<helmet>`, so anything placed in the outer head
+is discarded.
 
 ## Running locally
 
