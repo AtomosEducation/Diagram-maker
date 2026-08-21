@@ -1,9 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Diagram Maker">
-  <!-- The header mark, adapted for small sizes: its outer rounded frame becomes
-       the tile, and the glyph is filled solid so it survives at 16px. -->
+  <!-- A node-link diagram: one node branching to two. Connectors are kept
+       orthogonal so they sit on pixel boundaries and stay crisp at 16px, and
+       the glyph is solid rather than outlined for the same reason. -->
   <rect width="32" height="32" rx="7" fill="#6ccb95"/>
-  <path d="M2 19.1 L9.8 11.3 L16 17.6 L20.7 12.9 L30 22.2"
-        fill="none" stroke="#10241a" stroke-width="2.4"
-        stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="9.9" cy="7.6" r="2.1" fill="#10241a"/>
+  <g fill="none" stroke="#10241a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 10.8 V16.6"/>
+    <path d="M8.6 21.2 V16.6 H23.4 V21.2"/>
+  </g>
+  <g fill="#10241a">
+    <circle cx="16" cy="7.6" r="3.2"/>
+    <circle cx="8.6" cy="24.4" r="3.2"/>
+    <circle cx="23.4" cy="24.4" r="3.2"/>
+  </g>
 </svg>
