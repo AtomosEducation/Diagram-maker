@@ -35,6 +35,8 @@ Then visit <http://localhost:8765/>.
 - Three subjects — Physics, Chemistry, Mathematics — across 13 units,
   including a Trigonometric Functions unit of plotted graphs
 - Click to place components, drag to move, snap to grid and to connection points
+- Library tab beside the palette — save the canvas under a name and load it
+  back later; each unit keeps its own shelf, stored on the device
 - Wire tool: click each corner, double-click to finish; straight or right-angle routing
 - Plane Geometry drawing tools — segment, ray, polygon, arc and circle, all drawn
   by clicking on the canvas, with solid/dashed/dotted line styles and an
