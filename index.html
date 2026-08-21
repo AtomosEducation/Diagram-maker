@@ -10,7 +10,7 @@
 <helmet>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Diagram Maker</title>
-<meta name="theme-color" content="#6ccb95" />
+<meta name="theme-color" content="#e8b33c" />
 <!-- The runtime rebuilds <head> from this block, so the icons have to live
      here rather than in the document head. SVG first for browsers that take
      it; favicon.ico is the fallback and also answers the bare /favicon.ico
@@ -29,28 +29,28 @@
      class on the root element. The canvas deliberately stays paper-white in
      both themes — the ink is the same on screen as in the exported SVG. */
   .thm-dark {
-    --bg: #1a1a1a; --panel: #202020; --panel-2: #1c1c1c; --line: #2e2e2e;
-    --ctl: #2b2b2b; --ctl-line: #383838; --ctl-hover: #333333;
-    --field: #1f1f1f; --field-line: #3a3a3a;
-    --fg: #f2f2f2; --fg-2: #d2d2d2; --fg-3: #8b8b8b;
-    --accent: #6ccb95; --accent-2: #8fdcaf; --on-accent: #10241a;
-    --accent-fg: #6ccb95; --accent-line: #3f5c4b;
+    --bg: #1a1815; --panel: #211f1a; --panel-2: #1c1a16; --line: #302d26;
+    --ctl: #2c2922; --ctl-line: #3a362d; --ctl-hover: #35322a;
+    --field: #1f1d18; --field-line: #3c382f;
+    --fg: #f4f1e9; --fg-2: #d5d0c3; --fg-3: #8e887a;
+    --accent: #e8b33c; --accent-2: #f3c765; --on-accent: #2a1f04;
+    --accent-fg: #e8b33c; --accent-line: #5e4c22;
     --danger: #e88b7d; --danger-bg: #352b2a; --danger-line: #3d3231;
-    --tile-on: #2f3d35; --row-hover: #2d2d2d;
-    --canvas-line: #3a3a3a; --canvas-shadow: rgba(0,0,0,0.35);
-    --sel-bg: #34503f; --sel-fg: #ffffff;
+    --tile-on: #3b3524; --row-hover: #2e2b24;
+    --canvas-line: #3c382f; --canvas-shadow: rgba(0,0,0,0.35);
+    --sel-bg: #5a4820; --sel-fg: #ffffff;
   }
   .thm-light {
-    --bg: #eef0ee; --panel: #ffffff; --panel-2: #f7f8f7; --line: #dfe3e0;
-    --ctl: #f1f3f1; --ctl-line: #d4d9d5; --ctl-hover: #e6ebe7;
-    --field: #ffffff; --field-line: #c9d0cb;
-    --fg: #1b241e; --fg-2: #414a44; --fg-3: #6f7a73;
-    --accent: #6ccb95; --accent-2: #57bd85; --on-accent: #10241a;
-    --accent-fg: #2b7d55; --accent-line: #8ed3ac;
+    --bg: #f1eee6; --panel: #ffffff; --panel-2: #faf8f2; --line: #e6e0d2;
+    --ctl: #f5f2ea; --ctl-line: #dcd5c5; --ctl-hover: #ece7d9;
+    --field: #ffffff; --field-line: #d1c9b7;
+    --fg: #241f14; --fg-2: #4a4335; --fg-3: #7a7364;
+    --accent: #e8b33c; --accent-2: #d49f22; --on-accent: #2a1f04;
+    --accent-fg: #8a6300; --accent-line: #dcbc72;
     --danger: #b8442f; --danger-bg: #f6e4e0; --danger-line: #e6c8c1;
-    --tile-on: #dff0e4; --row-hover: #eaeeeb;
-    --canvas-line: #ccd3ce; --canvas-shadow: rgba(20,30,24,0.10);
-    --sel-bg: #b9e5cc; --sel-fg: #10241a;
+    --tile-on: #faeecd; --row-hover: #efebe0;
+    --canvas-line: #d4ccba; --canvas-shadow: rgba(40,32,10,0.10);
+    --sel-bg: #f4e0a4; --sel-fg: #2a1f04;
   }
 
   .thm a { color: var(--accent-fg); text-decoration: none; }
@@ -190,15 +190,15 @@
           <svg ref="{{ svgRef }}" viewBox="{{ viewBox }}" preserveAspectRatio="none" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onDoubleClick="{{ onCanvasDouble }}" style="display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none;">
             <defs>
               <pattern id="g-lines" width="20" height="20" patternUnits="userSpaceOnUse">
-                <path d="M20 0 H0 V20" fill="none" stroke="#d3ddd6" stroke-width="1"></path>
+                <path d="M20 0 H0 V20" fill="none" stroke="#ded9cb" stroke-width="1"></path>
               </pattern>
               <pattern id="g-dots" width="20" height="20" patternUnits="userSpaceOnUse">
-                <circle cx="1" cy="1" r="1.15" fill="#a9b8ae"></circle>
+                <circle cx="1" cy="1" r="1.15" fill="#b9b3a2"></circle>
               </pattern>
             </defs>
             <rect x="{{ vbX }}" y="{{ vbY }}" width="{{ vbW }}" height="{{ vbH }}" fill="{{ gridFill }}"></rect>
             <sc-if value="{{ hasContent }}" hint-placeholder-val="{{ false }}">
-              <rect x="{{ exportX }}" y="{{ exportY }}" width="{{ exportW }}" height="{{ exportH }}" fill="none" stroke="#9fb3a6" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style="pointer-events: none;"></rect>
+              <rect x="{{ exportX }}" y="{{ exportY }}" width="{{ exportW }}" height="{{ exportH }}" fill="none" stroke="#b4ab93" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style="pointer-events: none;"></rect>
             </sc-if>
             <sc-for list="{{ wires }}" as="w" hint-placeholder-count="0">
               <g onPointerDown="{{ w.onDown }}" style="cursor: move;">
@@ -243,31 +243,31 @@
             </sc-for>
             <sc-if value="{{ frame }}" hint-placeholder-val="{{ false }}">
               <g transform="{{ frame.transform }}" style="pointer-events: none;">
-                <rect x="{{ frame.x }}" y="{{ frame.y }}" width="{{ frame.w }}" height="{{ frame.h }}" fill="none" stroke="#2e7d55" stroke-width="1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"></rect>
-                <line x1="0" y1="{{ frame.topY }}" x2="0" y2="{{ frame.rotY }}" stroke="#2e7d55" stroke-width="1" vector-effect="non-scaling-stroke"></line>
-                <circle cx="0" cy="{{ frame.rotY }}" r="{{ frame.hr }}" fill="#ffffff" stroke="#2e7d55" stroke-width="1.4" vector-effect="non-scaling-stroke" onPointerDown="{{ frame.onRotate }}" style="pointer-events: auto; cursor: grab;"></circle>
+                <rect x="{{ frame.x }}" y="{{ frame.y }}" width="{{ frame.w }}" height="{{ frame.h }}" fill="none" stroke="#a8790c" stroke-width="1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"></rect>
+                <line x1="0" y1="{{ frame.topY }}" x2="0" y2="{{ frame.rotY }}" stroke="#a8790c" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                <circle cx="0" cy="{{ frame.rotY }}" r="{{ frame.hr }}" fill="#ffffff" stroke="#a8790c" stroke-width="1.4" vector-effect="non-scaling-stroke" onPointerDown="{{ frame.onRotate }}" style="pointer-events: auto; cursor: grab;"></circle>
                 <sc-for list="{{ frame.handles }}" as="hh" hint-placeholder-count="0">
-                  <rect x="{{ hh.x }}" y="{{ hh.y }}" width="{{ frame.hs }}" height="{{ frame.hs }}" fill="#ffffff" stroke="#2e7d55" stroke-width="1.4" vector-effect="non-scaling-stroke" onPointerDown="{{ hh.onDown }}" style="pointer-events: auto; cursor: {{ hh.cursor }};"></rect>
+                  <rect x="{{ hh.x }}" y="{{ hh.y }}" width="{{ frame.hs }}" height="{{ frame.hs }}" fill="#ffffff" stroke="#a8790c" stroke-width="1.4" vector-effect="non-scaling-stroke" onPointerDown="{{ hh.onDown }}" style="pointer-events: auto; cursor: {{ hh.cursor }};"></rect>
                 </sc-for>
               </g>
             </sc-if>
             <sc-for list="{{ handles }}" as="hd" hint-placeholder-count="0">
-              <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="5" fill="#ffffff" stroke="#2e7d55" stroke-width="1.6" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
+              <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="5" fill="#ffffff" stroke="#a8790c" stroke-width="1.6" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
             </sc-for>
             <sc-if value="{{ snapHint }}" hint-placeholder-val="{{ false }}">
               <g style="pointer-events: none;">
-                <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="8" fill="none" stroke="#e08a2e" stroke-width="1.6"></circle>
-                <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="2.4" fill="#e08a2e"></circle>
+                <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="8" fill="none" stroke="#1d6fb8" stroke-width="1.6"></circle>
+                <circle cx="{{ snapHint.x }}" cy="{{ snapHint.y }}" r="2.4" fill="#1d6fb8"></circle>
               </g>
             </sc-if>
           </svg>
         </div>
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
           <div style="position: absolute; inset: 6px 20px 20px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
-            <div style="font-size: 13.5px; color: #a8b0ab;">Pick a component on the right, then click here to place it.</div>
+            <div style="font-size: 13.5px; color: #b0aa9c;">Pick a component on the right, then click here to place it.</div>
           </div>
         </sc-if>
-        <div style="position: absolute; left: 32px; bottom: 30px; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: #97a09a; font-family: 'DM Mono', monospace;">
+        <div style="position: absolute; left: 32px; bottom: 30px; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: #9c9588; font-family: 'DM Mono', monospace;">
           <div style="display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 5px; overflow: hidden;">
             <button onClick="{{ zoomOut }}" title="Zoom out" style="width: 26px; height: 24px; font-family: inherit; font-size: 14px; line-height: 1; color: var(--fg-2); background: transparent; border: none; cursor: pointer;" style-hover="background: var(--ctl-hover);">−</button>
             <button onClick="{{ zoomReset }}" title="Reset to 100% (Ctrl+0)" style="min-width: 48px; height: 24px; font-family: inherit; font-size: 11px; color: var(--fg-2); background: transparent; border: none; border-left: 1px solid var(--line); border-right: 1px solid var(--line); cursor: pointer;" style-hover="background: var(--ctl-hover);">{{ zoomTxt }}</button>
@@ -387,8 +387,8 @@
 // with dangerouslySetInnerHTML, and `currentColor` is also not resolved by
 // several SVG consumers (InDesign, Illustrator import, some converters).
 const INK_CANVAS = '#16201a';
-const INK_ICON = '#e6e6e6';
-const INK_ICON_LIGHT = '#2a332d';
+const INK_ICON = '#e8e4da';
+const INK_ICON_LIGHT = '#322d22';
 let INK = INK_CANVAS;
 const withInk = (col, fn) => { const prev = INK; INK = col; try { return fn(); } finally { INK = prev; } };
 
@@ -925,7 +925,7 @@ class Component extends DCLogic {
   // The root element covers the viewport, but the page behind it still shows
   // through on overscroll, so keep it in step with the theme.
   syncPageBg() {
-    const bg = this.theme === 'dark' ? '#1a1a1a' : '#eef0ee';
+    const bg = this.theme === 'dark' ? '#1a1815' : '#f1eee6';
     if (this._bg !== bg) { this._bg = bg; document.documentElement.style.background = bg; }
   }
 
@@ -1344,8 +1344,8 @@ class Component extends DCLogic {
       toggleRulers: () => this.setState(s => ({ rulers: !s.rulers })),
       rulerBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.rulers ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.rulers ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
       rulerPad: st.rulers ? '22px' : '0px',
-      rulerInk: dark ? '#8b8b8b' : '#6f7a73',
-      rulerLine: dark ? '#3a3a3a' : '#c9d0cb',
+      rulerInk: dark ? '#8e887a' : '#7a7364',
+      rulerLine: dark ? '#3c382f' : '#d1c9b7',
       ticksX: ticks(vb.x, vb.w, st.view.z).map(t => ({ p: (t - vb.x) * st.view.z, label: [String(t)] })),
       ticksY: ticks(vb.y, vb.h, st.view.z).map(t => ({ p: (t - vb.y) * st.view.z, label: [String(t)] })),
       rulerW: st.vp.w, rulerH: st.vp.h,
@@ -1491,7 +1491,7 @@ class Component extends DCLogic {
           const tail = routePts([st.draw.pts[st.draw.pts.length - 1], targetPt], st.draft.route);
           out += DASH(polyD(tail), st.draft.sw, '6 5');
         }
-        return out + st.draw.pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#2e7d55"/>`).join('');
+        return out + st.draw.pts.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="#a8790c"/>`).join('');
       })),
 
       hasProps: !!(sel || pickComp),

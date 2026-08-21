@@ -2,12 +2,12 @@
   <!-- A node-link diagram: one node branching to two. Connectors are kept
        orthogonal so they sit on pixel boundaries and stay crisp at 16px, and
        the glyph is solid rather than outlined for the same reason. -->
-  <rect width="32" height="32" rx="7" fill="#6ccb95"/>
-  <g fill="none" stroke="#10241a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <rect width="32" height="32" rx="7" fill="#e8b33c"/>
+  <g fill="none" stroke="#2a1f04" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="M16 10.8 V16.6"/>
     <path d="M8.6 21.2 V16.6 H23.4 V21.2"/>
   </g>
-  <g fill="#10241a">
+  <g fill="#2a1f04">
     <circle cx="16" cy="7.6" r="3.2"/>
     <circle cx="8.6" cy="24.4" r="3.2"/>
     <circle cx="23.4" cy="24.4" r="3.2"/>
