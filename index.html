@@ -87,7 +87,7 @@
     </div>
     <div style="flex: 1;"></div>
     <div style="display: flex; align-items: center; gap: 6px; flex: 0 0 auto;">
-      <button onClick="{{ toggleSnap }}" style="{{ snapBtnStyle }}" style-hover="background: var(--ctl-hover);">
+      <button onClick="{{ toggleSnap }}" title="Snap to the grid — hold Alt to place freely" style="{{ snapBtnStyle }}" style-hover="background: var(--ctl-hover);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9h16M4 15h16M9 4v16M15 4v16"></path></svg>
         Snap {{ snapLabel }}
       </button>
@@ -167,7 +167,7 @@
             <button onClick="{{ gb.onPick }}" style="{{ gb.style }}">{{ gb.name }}</button>
           </sc-for>
         </div>
-        <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Snapping steps at half the grid.</span>
+        <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">New elements land on the grid. Hold Alt to place freely.</span>
       </div>
       <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
         <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Line width</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ cfgSwTxt }}</span></span>
@@ -315,6 +315,8 @@
             <rect x="{{ vbX }}" y="{{ vbY }}" width="{{ vbW }}" height="{{ vbH }}" fill="{{ gridFill }}"></rect>
             <sc-if value="{{ hasContent }}" hint-placeholder-val="{{ false }}">
               <rect x="{{ exportX }}" y="{{ exportY }}" width="{{ exportW }}" height="{{ exportH }}" fill="none" stroke="#b4ab93" stroke-width="1" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" style="pointer-events: none;"></rect>
+              <text x="{{ dimWX }}" y="{{ dimWY }}" text-anchor="middle" font-size="{{ dimFs }}" font-family="DM Mono, monospace" fill="#b4ab93" style="pointer-events: none;">{{ dimWText }}</text>
+              <text x="{{ dimHX }}" y="{{ dimHY }}" text-anchor="middle" dominant-baseline="central" font-size="{{ dimFs }}" font-family="DM Mono, monospace" fill="#b4ab93" transform="rotate(90 {{ dimHX }} {{ dimHY }})" style="pointer-events: none;">{{ dimHText }}</text>
             </sc-if>
             <sc-for list="{{ wires }}" as="w" hint-placeholder-count="0">
               <g onPointerDown="{{ w.onDown }}" style="cursor: move;">
@@ -1045,6 +1047,9 @@ const wireHtml = (it, withLabel) => {
 // library. Offsets are returned in canvas units, already scaled/rotated.
 const SNAP_R = 14;
 const EXPORT_PAD = 32;
+// Canvas units are exported as SVG user units, which map 1:1 to CSS pixels, so
+// millimetres come off the 96 dpi reference used by every SVG consumer.
+const PX_MM = (px) => (px * 25.4 / 96).toFixed(px * 25.4 / 96 < 100 ? 1 : 0);
 
 // ── Preferences ───────────────────────────────────────────────────────────
 // Settings persist, the drawing never does: reopening the app should restore
@@ -1647,7 +1652,10 @@ class Component extends DCLogic {
   }
   pt(e) {
     const r = this.rawPt(e);
-    const q = this.state.snap ? this.state.gridSize / 2 : 1;
+    // Land on the grid you can actually see, not on half steps between its
+    // lines. Alt suspends it while held, read straight off the event so it
+    // works whether or not the canvas has keyboard focus.
+    const q = (this.state.snap && !(e && e.altKey)) ? this.state.gridSize : 1;
     return { x: Math.round(r.x / q) * q, y: Math.round(r.y / q) * q };
   }
 
@@ -2177,7 +2185,18 @@ class Component extends DCLogic {
 
       // ── Live export size ──────────────────────────────────────────────
       exportW: eb.w, exportH: eb.h, exportX: eb.x, exportY: eb.y,
-      exportSize: `${eb.w} × ${eb.h} px`,
+      exportSize: `${eb.w} × ${eb.h} px · ${PX_MM(eb.w)} × ${PX_MM(eb.h)} mm`,
+      // Drawn on the canvas beside the dashed rectangle. Dividing by the zoom
+      // keeps the type a constant size on screen at any magnification.
+      dimFs: 11 / st.view.z,
+      dimGap: 7 / st.view.z,
+      // Wrapped in an array for the same reason the element labels are: a bare
+      // string interpolated into an SVG <text> is put inside a <span>, which
+      // in the SVG namespace paints nothing at all.
+      dimWText: [`${PX_MM(eb.w)} mm`],
+      dimHText: [`${PX_MM(eb.h)} mm`],
+      dimWX: eb.x + eb.w / 2, dimWY: eb.y - 7 / st.view.z,
+      dimHX: eb.x + eb.w + 7 / st.view.z, dimHY: eb.y + eb.h / 2,
       hasContent: st.items.length > 0,
 
       fontLabel: this.fontKey === 'serif' ? 'Times' : 'Sans',

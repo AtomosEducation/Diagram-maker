@@ -34,7 +34,10 @@ Then visit <http://localhost:8765/>.
 
 - Three subjects — Physics, Chemistry, Mathematics — across 13 units,
   including a Trigonometric Functions unit of plotted graphs
-- Click to place components, drag to move, snap to grid and to connection points
+- Click to place components, drag to move, snap to the grid and to connection
+  points; hold Alt to place freely
+- The dashed export outline carries live millimetre dimensions, so the printed
+  size of a figure is visible while drawing it
 - Library tab beside the palette — save the canvas under a name and load it
   back later; each unit keeps its own shelf, stored on the device, and the
   whole library exports to a JSON file to carry to another machine
