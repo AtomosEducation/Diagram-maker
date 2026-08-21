@@ -187,6 +187,18 @@
         <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Export margin</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ cfgPadTxt }}</span></span>
         <input type="range" min="0" max="80" step="4" value="{{ cfgPad }}" onChange="{{ onCfgPad }}" style="width: 100%;" />
       </label>
+      <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+        <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Library</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ libTotalTxt }}</span></span>
+        <div style="display: flex; gap: 5px;">
+          <button onClick="{{ exportLib }}" style="flex: 1; height: 30px; font-family: inherit; font-size: 12px; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Export…</button>
+          <button onClick="{{ pickImportFile }}" style="flex: 1; height: 30px; font-family: inherit; font-size: 12px; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Import…</button>
+        </div>
+        <input type="file" accept="application/json,.json" ref="{{ importRef }}" onChange="{{ onImportLib }}" style="display: none;" />
+        <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Import merges into what is already here, renaming on a clash.</span>
+        <sc-if value="{{ libIoMsg }}" hint-placeholder-val="{{ false }}">
+          <span style="font-size: 11px; color: var(--accent-fg); line-height: 1.5;">{{ libIoMsg }}</span>
+        </sc-if>
+      </div>
       <button onClick="{{ resetSettings }}" style="height: 32px; font-family: inherit; font-size: 12.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Reset to defaults</button>
     </div>
   </sc-if>
@@ -217,10 +229,21 @@
             <div style="display: flex; flex-direction: column; gap: 7px; padding: 10px 11px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
               <div style="font-size: 12.5px; color: var(--fg); word-break: break-word;">{{ e.name }}</div>
               <div style="font-size: 11px; color: var(--fg-3); font-family: 'DM Mono', monospace;">{{ e.meta }}</div>
-              <div style="display: flex; gap: 5px;">
-                <button onClick="{{ e.onLoad }}" style="flex: 1; height: 28px; font-family: inherit; font-size: 11.5px; font-weight: 500; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); border-radius: 5px; cursor: pointer;" style-hover="background: var(--accent-2);">Load</button>
-                <button onClick="{{ e.onDelete }}" style="height: 28px; padding: 0 10px; font-family: inherit; font-size: 11.5px; color: var(--danger); background: var(--ctl); border: 1px solid var(--danger-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--danger-bg);">Delete</button>
-              </div>
+              <sc-if value="{{ e.idle }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; gap: 5px;">
+                  <button onClick="{{ e.onLoad }}" style="flex: 1; height: 28px; font-family: inherit; font-size: 11.5px; font-weight: 500; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); border-radius: 5px; cursor: pointer;" style-hover="background: var(--accent-2);">Load</button>
+                  <button onClick="{{ e.onAskDelete }}" style="height: 28px; padding: 0 10px; font-family: inherit; font-size: 11.5px; color: var(--danger); background: var(--ctl); border: 1px solid var(--danger-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--danger-bg);">Delete</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ e.confirming }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span style="font-size: 11px; color: var(--danger); line-height: 1.5;">Delete this permanently? It cannot be undone.</span>
+                  <div style="display: flex; gap: 5px;">
+                    <button onClick="{{ e.onDelete }}" style="flex: 1; height: 28px; font-family: inherit; font-size: 11.5px; font-weight: 500; color: #ffffff; background: var(--danger); border: 1px solid var(--danger); border-radius: 5px; cursor: pointer;">Delete</button>
+                    <button onClick="{{ e.onCancelDelete }}" style="flex: 1; height: 28px; font-family: inherit; font-size: 11.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Cancel</button>
+                  </div>
+                </div>
+              </sc-if>
             </div>
           </sc-for>
         </div>
@@ -1039,25 +1062,30 @@ const loadPrefs = () => {
 // Kept on its own key rather than inside the preferences, so a large library
 // can never cost you your settings if storage runs out.
 const LIB_KEY = 'diagram-maker.library.v1';
+// Shared by the stored library and by import, so a file from another machine
+// gets exactly the same validation as anything already on this one.
+const normalizeLibrary = (v) => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const out = {};
+  Object.keys(v).forEach(k => {
+    if (!Array.isArray(v[k])) return;
+    const list = v[k]
+      .filter(e => e && typeof e.name === 'string' && Array.isArray(e.items))
+      .map(e => ({
+        name: e.name,
+        at: typeof e.at === 'number' ? e.at : 0,
+        items: e.items,
+        nextId: typeof e.nextId === 'number' ? e.nextId : e.items.length + 1
+      }));
+    if (list.length) out[k] = list;
+  });
+  return out;
+};
+const libCount = (lib) => Object.keys(lib).reduce((n, k) => n + lib[k].length, 0);
 const loadLibrary = () => {
   try {
     const raw = localStorage.getItem(LIB_KEY);
-    if (!raw) return {};
-    const v = JSON.parse(raw);
-    if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
-    const out = {};
-    Object.keys(v).forEach(k => {
-      if (!Array.isArray(v[k])) return;
-      out[k] = v[k]
-        .filter(e => e && typeof e.name === 'string' && Array.isArray(e.items))
-        .map(e => ({
-          name: e.name,
-          at: typeof e.at === 'number' ? e.at : 0,
-          items: e.items,
-          nextId: typeof e.nextId === 'number' ? e.nextId : e.items.length + 1
-        }));
-    });
-    return out;
+    return raw ? normalizeLibrary(JSON.parse(raw)) : {};
   } catch (err) {
     return {};
   }
@@ -1417,6 +1445,8 @@ class Component extends DCLogic {
     gridSize: 20, labelFs: 20, exportPad: EXPORT_PAD, settingsOpen: false,
     // Left panel: the component palette, or this unit's saved diagrams.
     panelTab: 'components', library: loadLibrary(), libName: '', libError: '',
+    // Name awaiting delete confirmation, and the import/export status line.
+    libConfirm: null, libIoMsg: '',
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
     // factor in px per canvas unit; `vp` is the live pixel size of the canvas
     // element, measured so the viewBox aspect always matches it exactly.
@@ -1886,6 +1916,58 @@ class Component extends DCLogic {
   deleteFromLibrary(name) {
     const key = this.libKey();
     this.writeLibrary({ ...this.state.library, [key]: this.libList(key).filter(e => e.name !== name) });
+    this.setState({ libConfirm: null });
+  }
+
+  // ── Moving a library between machines ───────────────────────────────────
+  exportLibrary() {
+    const n = libCount(this.state.library);
+    if (!n) { this.setState({ libIoMsg: 'There is nothing saved to export yet.' }); return; }
+    const payload = { app: 'diagram-maker', kind: 'library', version: 1, library: this.state.library };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'diagram-maker-library.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    this.setState({ libIoMsg: `Exported ${n} diagram${n === 1 ? '' : 's'}.` });
+  }
+
+  importLibrary(text) {
+    let raw;
+    try { raw = JSON.parse(text); } catch (err) {
+      this.setState({ libIoMsg: 'That file is not valid JSON.' }); return;
+    }
+    // Accept both the wrapped export and a bare library object.
+    const incoming = normalizeLibrary(raw && raw.library ? raw.library : raw);
+    if (!libCount(incoming)) {
+      this.setState({ libIoMsg: 'No saved diagrams found in that file.' }); return;
+    }
+    // Merge rather than replace, and rename on a clash: importing must never
+    // quietly destroy something already saved on this machine.
+    const merged = { ...this.state.library };
+    let added = 0, renamed = 0;
+    Object.keys(incoming).forEach(k => {
+      const have = (merged[k] || []).slice();
+      incoming[k].forEach(e => {
+        let name = e.name, n = 2;
+        while (have.some(x => x.name === name)) { name = e.name + ' (' + n + ')'; n++; }
+        if (name !== e.name) renamed++;
+        have.push({ ...e, name });
+        added++;
+      });
+      merged[k] = have;
+    });
+    try {
+      localStorage.setItem(LIB_KEY, JSON.stringify(merged));
+      this.setState({
+        library: merged,
+        libIoMsg: `Imported ${added} diagram${added === 1 ? '' : 's'}`
+          + (renamed ? `, ${renamed} renamed to avoid a clash.` : '.')
+      });
+    } catch (err) {
+      this.setState({ libIoMsg: 'Could not save — browser storage is full.' });
+    }
   }
 
   patch(o) {
@@ -2085,9 +2167,23 @@ class Component extends DCLogic {
 
       // ── Settings ──────────────────────────────────────────────────────
       settingsOpen: st.settingsOpen,
-      toggleSettings: () => this.setState(s2 => ({ settingsOpen: !s2.settingsOpen })),
+      toggleSettings: () => this.setState(s2 => ({ settingsOpen: !s2.settingsOpen, libIoMsg: '' })),
       closeSettings: () => this.setState({ settingsOpen: false }),
       settingsBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.settingsOpen ? 'var(--accent-fg)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.settingsOpen ? 'var(--accent-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
+      libTotalTxt: libCount(st.library) + ' saved',
+      libIoMsg: st.libIoMsg,
+      exportLib: () => this.exportLibrary(),
+      importRef: (el) => { this._importEl = el; },
+      // The styled button stands in for the file input, which stays hidden.
+      pickImportFile: () => { if (this._importEl) this._importEl.click(); },
+      onImportLib: (e) => {
+        const f = e.target.files && e.target.files[0];
+        // Cleared so picking the same file twice still fires a change.
+        e.target.value = '';
+        if (!f) return;
+        f.text().then(t => this.importLibrary(t))
+          .catch(() => this.setState({ libIoMsg: 'Could not read that file.' }));
+      },
       gridSize: st.gridSize,
       gridSizeTxt: st.gridSize + ' px',
       // The grid path is rebuilt with the pattern tile so the lines meet.
@@ -2153,7 +2249,7 @@ class Component extends DCLogic {
       ].map(o => ({
         name: o.name,
         style: `flex: 1; height: 29px; font-family: inherit; font-size: 12px; font-weight: ${st.panelTab === o.id ? 500 : 400}; color: ${st.panelTab === o.id ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.panelTab === o.id ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.panelTab === o.id ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer;`,
-        onPick: () => this.setState({ panelTab: o.id, libError: '' })
+        onPick: () => this.setState({ panelTab: o.id, libError: '', libConfirm: null })
       })),
       libName: st.libName,
       libError: st.libError,
@@ -2167,13 +2263,17 @@ class Component extends DCLogic {
       libItems: this.libList().slice().sort((a, b) => b.at - a.at).map(e => ({
         name: e.name,
         meta: e.items.length + (e.items.length === 1 ? ' element' : ' elements') + (libDate(e.at) ? ' · ' + libDate(e.at) : ''),
+        idle: st.libConfirm !== e.name,
+        confirming: st.libConfirm === e.name,
         onLoad: () => this.loadFromLibrary(e.name),
+        onAskDelete: () => this.setState({ libConfirm: e.name }),
+        onCancelDelete: () => this.setState({ libConfirm: null }),
         onDelete: () => this.deleteFromLibrary(e.name)
       })),
 
       units: sub.units.map(u => ({
         name: u.name, style: tabStyle(u.id === unit.id),
-        onPick: () => this.setState({ unit: u.id, pick: null })
+        onPick: () => this.setState({ unit: u.id, pick: null, libConfirm: null })
       })),
 
       palette: (() => {
