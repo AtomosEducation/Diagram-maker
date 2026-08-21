@@ -372,6 +372,19 @@
                     </div>
                   </div>
                 </sc-if>
+                <sc-if value="{{ showArrowHead }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                    <label style="display: flex; flex-direction: column; gap: 7px;">
+                      <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Arrow head</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pAhsTxt }}</span></span>
+                      <input type="range" min="6" max="30" step="1" value="{{ pAhs }}" onChange="{{ setAhs }}" style="width: 100%;" />
+                    </label>
+                    <div style="display: flex; gap: 5px;">
+                      <sc-for list="{{ ahStyleBtns }}" as="ah" hint-placeholder-count="3">
+                        <button onClick="{{ ah.onPick }}" style="{{ ah.style }}">{{ ah.name }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
                 <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
                   <span style="font-size: 12px; color: var(--fg-2);">Line style</span>
                   <div style="display: flex; gap: 5px;">
@@ -533,7 +546,7 @@ const ESC = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 // call this so the two can never drift apart.
 const compLabel = (it, comp, show) => {
   if (!show || !it.label) return '';
-  const off = comp.h / 2 + 20;
+  const off = comp.lgap != null ? comp.lgap : comp.h / 2 + 20;
   return TX(0, it.lpos === 'above' ? -off : off, ESC(it.label), 20);
 };
 
@@ -721,6 +734,21 @@ const arcD = (a, b, bulge) => {
   return `M${a.x} ${a.y} A${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} ${h > 0 ? 1 : 0} ${b.x} ${b.y}`;
 };
 const circleR = (it) => Math.hypot(it.pts[1].x - it.pts[0].x, it.pts[1].y - it.pts[0].y);
+// Arrow head for drawn lines. The old AHEAD sized itself from the stroke alone,
+// which put a ~7 unit head on a 200 unit ray — present, but small enough to
+// read as missing. Size is now its own property, and the head can be a filled
+// triangle, an open V or a hollow outline.
+const AH_STYLES = ['solid', 'open', 'hollow'];
+const AH_SIZE = (it) => (it.ahs == null ? 14 : it.ahs);
+const AHEAD2 = (x, y, a, size, style, sw) => {
+  const f = (v) => v.toFixed(2);
+  const p1 = [x - size * Math.cos(a - 0.42), y - size * Math.sin(a - 0.42)];
+  const p2 = [x - size * Math.cos(a + 0.42), y - size * Math.sin(a + 0.42)];
+  const tri = `M${f(p1[0])} ${f(p1[1])} L${f(x)} ${f(y)} L${f(p2[0])} ${f(p2[1])}`;
+  if (style === 'open') return P(tri, sw);
+  if (style === 'hollow') return P(tri + ' Z', sw);
+  return `<path d="${tri} Z" fill="${INK}" stroke="none"/>`;
+};
 // The invisible fat stroke used to grab an item has to follow the shape that
 // is actually drawn, or a circle could only be caught along its radius.
 const hitD = (it) => {
@@ -767,10 +795,10 @@ const geomHtml = (it, kind, withLabel) => {
   } else {
     out = strokeD(polyD(p), it.sw, it.dash);
     at = ptAt(p, 0.5);
-    const size = Math.max(7, it.sw * 4);
+    const size = AH_SIZE(it);
     const prev = p[p.length - 2] || a;
-    if (it.arrow === 'end') out += AHEAD(b.x, b.y, Math.atan2(b.y - prev.y, b.x - prev.x), size);
-    if (it.arrow === 'mid') out += AHEAD(at.x, at.y, at.a, size);
+    if (it.arrow === 'end') out += AHEAD2(b.x, b.y, Math.atan2(b.y - prev.y, b.x - prev.x), size, it.ahStyle, it.sw);
+    if (it.arrow === 'mid') out += AHEAD2(at.x, at.y, at.a, size, it.ahStyle, it.sw);
   }
   if (withLabel && it.label && at) {
     const perp = (at.a || 0) + Math.PI / 2;
@@ -785,9 +813,9 @@ const wireHtml = (it, withLabel) => {
   if (kind !== 'poly') return geomHtml(it, kind, withLabel);
   const pts = routePts(it.pts, it.route);
   let out = P(polyD(pts), it.sw);
-  const size = Math.max(7, it.sw * 4);
-  if (it.arrow === 'mid') { const q = ptAt(pts, 0.5); out += AHEAD(q.x, q.y, q.a, size); }
-  if (it.arrow === 'end') { const q = ptAt(pts, 1); out += AHEAD(q.x, q.y, q.a, size); }
+  const size = AH_SIZE(it);
+  if (it.arrow === 'mid') { const q = ptAt(pts, 0.5); out += AHEAD2(q.x, q.y, q.a, size, it.ahStyle, it.sw); }
+  if (it.arrow === 'end') { const q = ptAt(pts, 1); out += AHEAD2(q.x, q.y, q.a, size, it.ahStyle, it.sw); }
   if (withLabel && it.label) {
     const q = ptAt(pts, 0.5);
     const perp = q.a + Math.PI / 2;
@@ -992,7 +1020,9 @@ const LIB = [
         d: (s) => P('M-52 28 A58 58 0 0 1 52 28', s) + DOT(-52, 28, 3.4) + DOT(52, 28, 3.4) },
       { id: 'dcircle', name: 'Circle (draw)', wire: true, kind: 'circle', w: 120, h: 120,
         d: (s) => C(0, 0, 52, s) + DOT(0, 0, 3.4) },
-      { id: 'point', name: 'Point', w: 30, h: 30, d: (s) => DOT(0, 0, 4) + TX(0, -14, 'A', 13) },
+      // The letter used to be baked into the glyph, so it could never be
+      // changed. It is a default label now, and Size scales the dot itself.
+      { id: 'point', name: 'Point', w: 30, h: 30, defLabel: 'A', lgap: 15, d: (s) => DOT(0, 0, 4) },
       { id: 'segment', name: 'Segment', w: 130, h: 24, d: (s) => P('M-58 0 H58', s) + DOT(-58, 0, 3.4) + DOT(58, 0, 3.4) },
       { id: 'rayline', name: 'Ray', w: 130, h: 24, d: (s) => ARROW(-58, 0, 58, 0, s, 9) + DOT(-58, 0, 3.4) },
       { id: 'triangle', name: 'Triangle', w: 130, h: 110, d: (s) => P('M0 -50 L58 50 H-58 Z', s) },
@@ -1041,7 +1071,7 @@ class Component extends DCLogic {
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3 }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid' }
   };
 
   componentDidMount() {
@@ -1293,7 +1323,7 @@ class Component extends DCLogic {
     if (fit) { x = fit.x; y = fit.y; }
     this.commit(null);
     this.setState(s => ({
-      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label }),
+      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label || c.defLabel || '' }),
       nextId: s.nextId + 1, sel: s.nextId
     }));
   }
@@ -1306,7 +1336,7 @@ class Component extends DCLogic {
       // wins over the draft here.
       items: s.items.concat({ id: s.nextId, key, wire: true, pts, sw: d.sw, label: d.label,
         arrow: (IDX[key] || {}).defArrow != null ? IDX[key].defArrow : d.arrow,
-        route: d.route, dash: d.dash, bulge: d.bulge }),
+        route: d.route, dash: d.dash, bulge: d.bulge, ahs: d.ahs, ahStyle: d.ahStyle }),
       nextId: s.nextId + 1, sel: s.nextId, draw: null, cursor: null
     }));
   }
@@ -1792,6 +1822,16 @@ class Component extends DCLogic {
       showArrow: drawKind === 'poly' || drawKind === 'seg',
       showRouting: drawKind === 'poly',
       showBulge: drawKind === 'arc',
+      // No point offering head controls when there is no head.
+      showArrowHead: (drawKind === 'poly' || drawKind === 'seg') && (src.arrow || 'none') !== 'none',
+      pAhs: AH_SIZE(src), pAhsTxt: AH_SIZE(src) + 'px',
+      setAhs: (e) => this.patch({ ahs: parseFloat(e.target.value) }),
+      ahStyleBtns: [
+        { id: 'solid', name: 'Solid' }, { id: 'open', name: 'Open' }, { id: 'hollow', name: 'Hollow' }
+      ].map(o => ({
+        name: o.name, style: segStyle((src.ahStyle || 'solid') === o.id),
+        onPick: () => this.patch({ ahStyle: o.id })
+      })),
       arrowTitle: drawKind === 'poly' ? 'Current arrow' : 'Arrow',
       drawHint: DRAW_HINTS[drawKind] || DRAW_HINTS.poly,
       pBulge: BULGE(src.bulge), pBulgeTxt: Math.round(BULGE(src.bulge) * 100) + '%',
