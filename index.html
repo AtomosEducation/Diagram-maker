@@ -124,14 +124,12 @@
     </div>
   </header>
 
-  <div style="flex: 1; display: flex; min-height: 0;">
-
-    <nav style="flex: 0 0 226px; background: var(--panel); padding: 10px 8px 14px; display: flex; flex-direction: column; gap: 2px;">
-      <div style="font-size: 11px; letter-spacing: 0.06em; color: var(--fg-3); padding: 6px 12px 10px;">SUBJECT</div>
-      <sc-for list="{{ subjects }}" as="s" hint-placeholder-count="3">
-        <button onClick="{{ s.onPick }}" style="{{ s.style }}" style-hover="background: var(--row-hover);">
-          <span style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 16px; border-radius: 2px; background: {{ s.bar }};"></span>
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 17px;">
+  <!-- Subject tabs, then unit tabs: both span the full width, above the
+       components / canvas / properties columns. -->
+  <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 12px 20px 10px; overflow-x: auto;">
+    <sc-for list="{{ subjects }}" as="s" hint-placeholder-count="3">
+      <button onClick="{{ s.onPick }}" style="{{ s.style }}" style-hover="background: var(--ctl-hover);">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 17px;">
           <sc-for list="{{ s.icon }}" as="n" hint-placeholder-count="0">
             <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
               <path d="{{ n.d }}" transform="{{ n.tr }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></path>
@@ -141,26 +139,48 @@
             </sc-if>
           </sc-for>
         </svg>
-          <span style="flex: 1; text-align: left;">
-            <span style="display: block; font-size: 13.5px; color: var(--fg);">{{ s.name }}</span>
-            <span style="display: block; font-size: 11px; color: var(--fg-3); margin-top: 1px;">{{ s.count }} units</span>
-          </span>
-        </button>
-      </sc-for>
-      <div style="flex: 1;"></div>
-      <div style="font-size: 11.5px; color: var(--fg-3); padding: 0 12px; line-height: 1.6;">Click the canvas to place · drag to move · Del to remove<br />Wire: click each corner, double-click to finish</div>
-    </nav>
+        {{ s.name }}
+      </button>
+    </sc-for>
+  </div>
+  <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 0 20px 12px; overflow-x: auto;">
+    <sc-for list="{{ units }}" as="u" hint-placeholder-count="5">
+      <button onClick="{{ u.onPick }}" style="{{ u.style }}">{{ u.name }}</button>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; display: flex; min-height: 0;">
+
+    <aside style="flex: 0 0 268px; background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;">
+      <div style="padding: 16px 16px 10px; display: flex; align-items: baseline; gap: 8px;">
+        <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Components</div>
+        <div style="font-size: 11.5px; color: var(--fg-3);">{{ unitName }}</div>
+      </div>
+      <div style="flex: 1 1 auto; overflow-y: auto; padding: 2px 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start;">
+        <sc-for list="{{ palette }}" as="c" hint-placeholder-count="8">
+          <button onClick="{{ c.onPick }}" title="{{ c.name }}" style="{{ c.style }}" style-hover="background: var(--ctl-hover);">
+            <svg viewBox="{{ c.viewBox }}" width="100%" height="52" style="display: block;">
+              <sc-for list="{{ c.nodes }}" as="n" hint-placeholder-count="0">
+                <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                  <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                </sc-if>
+                <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                  <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                </sc-if>
+                <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
+                  <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                </sc-if>
+              </sc-for>
+            </svg>
+            <span style="display: block; font-size: 10.5px; line-height: 1.25; color: var(--fg-3); margin-top: 7px; text-align: center;">{{ c.name }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="flex: 0 0 auto; border-top: 1px solid var(--line); padding: 10px 14px 12px; font-size: 11.5px; color: var(--fg-3); line-height: 1.6;">Click the canvas to place · drag to move · Del to remove<br />Wire: click each corner, double-click to finish</div>
+    </aside>
 
     <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
 
-      <div style="flex: 0 0 auto; padding: 14px 20px 0;">
-        <div style="font-size: 26px; font-weight: 500; letter-spacing: -0.01em;">{{ subjectName }}</div>
-      </div>
-      <div style="flex: 0 0 52px; display: flex; align-items: center; gap: 6px; padding: 0 20px; overflow-x: auto;">
-        <sc-for list="{{ units }}" as="u" hint-placeholder-count="5">
-          <button onClick="{{ u.onPick }}" style="{{ u.style }}">{{ u.name }}</button>
-        </sc-for>
-      </div>
 
       <div style="flex: 1; position: relative; min-height: 0; padding: 6px 20px 20px;">
         <div style="position: absolute; inset: 6px 20px 20px; background: #ffffff; border: 1px solid var(--canvas-line); border-radius: 7px; overflow: hidden; box-shadow: 0 2px 10px var(--canvas-shadow); padding: {{ rulerPad }} 0 0 {{ rulerPad }};">
@@ -264,7 +284,7 @@
         </div>
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ true }}">
           <div style="position: absolute; inset: 6px 20px 20px; display: flex; align-items: center; justify-content: center; pointer-events: none;">
-            <div style="font-size: 13.5px; color: #b0aa9c;">Pick a component on the right, then click here to place it.</div>
+            <div style="font-size: 13.5px; color: #b0aa9c;">Pick a component on the left, then click here to place it.</div>
           </div>
         </sc-if>
         <div style="position: absolute; left: 32px; bottom: 30px; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: #9c9588; font-family: 'DM Mono', monospace;">
@@ -282,33 +302,7 @@
       </div>
     </div>
 
-    <aside style="flex: 0 0 284px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0;">
-      <div style="padding: 16px 16px 10px; display: flex; align-items: baseline; gap: 8px;">
-        <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Components</div>
-        <div style="font-size: 11.5px; color: var(--fg-3);">{{ unitName }}</div>
-      </div>
-      <div style="flex: 1 1 auto; overflow-y: auto; padding: 2px 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start;">
-        <sc-for list="{{ palette }}" as="c" hint-placeholder-count="8">
-          <button onClick="{{ c.onPick }}" title="{{ c.name }}" style="{{ c.style }}" style-hover="background: var(--ctl-hover);">
-            <svg viewBox="{{ c.viewBox }}" width="100%" height="52" style="display: block;">
-              <sc-for list="{{ c.nodes }}" as="n" hint-placeholder-count="0">
-                <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
-                  <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
-                </sc-if>
-                <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                  <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
-                </sc-if>
-                <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                  <text x="{{ n.x }}" y="{{ n.y }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
-                </sc-if>
-              </sc-for>
-            </svg>
-            <span style="display: block; font-size: 10.5px; line-height: 1.25; color: var(--fg-3); margin-top: 7px; text-align: center;">{{ c.name }}</span>
-          </button>
-        </sc-for>
-      </div>
-
-      <div style="flex: 0 0 auto; border-top: 1px solid var(--line); background: var(--panel-2); max-height: 56%; overflow-y: auto;">
+    <aside style="flex: 0 0 284px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; overflow-y: auto;">
         <div style="padding: 14px 16px 8px; display: flex; align-items: baseline; gap: 8px;">
           <div style="font-size: 13.5px; font-weight: 500; color: var(--fg);">Properties</div>
           <div style="font-size: 11.5px; color: var(--accent-fg);">{{ propTitle }}</div>
@@ -396,9 +390,8 @@
           </div>
         </sc-if>
         <sc-if value="{{ noProps }}" hint-placeholder-val="{{ false }}">
-          <div style="padding: 4px 16px 18px; font-size: 12px; color: var(--fg-3); line-height: 1.6;">Select a component above, or click an element on the canvas, to edit it.</div>
+          <div style="padding: 4px 16px 18px; font-size: 12px; color: var(--fg-3); line-height: 1.6;">Select a component on the left, or click an element on the canvas, to edit it.</div>
         </sc-if>
-      </div>
     </aside>
   </div>
 </div>
@@ -1494,8 +1487,9 @@ class Component extends DCLogic {
         name: s.name, count: s.units.length,
         icon: nodesFor(ICONS[s.id], { stroke: SUBCOLOR[s.id], sw: 1.5 }),
         iconColor: SUBCOLOR[s.id],
-        bar: s.id === st.subject ? SUBCOLOR[s.id] : 'transparent',
-        style: `position: relative; display: flex; align-items: center; gap: 12px; text-align: left; padding: 9px 12px 9px 14px; font-family: inherit; background: ${s.id === st.subject ? 'var(--row-hover)' : 'transparent'}; border: none; border-radius: 5px; cursor: pointer; color: var(--fg);`,
+        // Horizontal pill. The subject's own colour stays on the icon so the
+        // three remain distinguishable, while the accent marks the active one.
+        style: `display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 15px; font-family: inherit; font-size: 13px; font-weight: ${s.id === st.subject ? 500 : 400}; color: ${s.id === st.subject ? 'var(--fg)' : 'var(--fg-2)'}; background: ${s.id === st.subject ? 'var(--ctl-hover)' : 'var(--ctl)'}; border: 1px solid ${s.id === st.subject ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 17px; cursor: pointer; white-space: nowrap; flex: 0 0 auto;`,
         onPick: () => this.setState({ subject: s.id, unit: s.units[0].id, pick: null, sel: null, query: '' })
       })),
 
