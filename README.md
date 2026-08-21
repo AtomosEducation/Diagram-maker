@@ -38,6 +38,7 @@ Then visit <http://localhost:8765/>.
 - Per-element label, size, rotation, flip and line weight
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
+- Label can sit above or below a component
 - Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search

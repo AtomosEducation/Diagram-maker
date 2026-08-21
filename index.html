@@ -320,6 +320,14 @@
             <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
               <span style="font-size: 12px; color: var(--fg-2);">Label</span>
               <input ref="{{ labelRef }}" value="{{ pLabel }}" onChange="{{ setLabel }}" placeholder="e.g. R₁ = 10 Ω" style="height: 30px; padding: 0 10px; font-family: inherit; font-size: 12.5px; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;" style-focus="border-color: var(--accent-fg);" />
+              <sc-if value="{{ showLabelPos }}" hint-placeholder-val="{{ true }}">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 11.5px; color: var(--fg-3); flex: 0 0 auto;">Position</span>
+                  <sc-for list="{{ lposBtns }}" as="l" hint-placeholder-count="2">
+                    <button onClick="{{ l.onPick }}" style="{{ l.style }}">{{ l.name }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
               <div style="display: flex; gap: 4px;">
                 <sc-for list="{{ symTabs }}" as="t" hint-placeholder-count="5">
                   <button onClick="{{ t.onPick }}" title="{{ t.title }}" style="{{ t.style }}">{{ t.tab }}</button>
@@ -494,6 +502,16 @@ const AHEAD = (x, y, a, size) => {
 };
 
 const ESC = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// A component's label hangs below it by default; `lpos: 'above'` lifts it over
+// the top. The gap is measured from the component's own half-height, so it
+// clears tall parts like the bulbs either way. The canvas and the export both
+// call this so the two can never drift apart.
+const compLabel = (it, comp, show) => {
+  if (!show || !it.label) return '';
+  const off = comp.h / 2 + 20;
+  return TX(0, it.lpos === 'above' ? -off : off, ESC(it.label), 20);
+};
 
 // ── String markup → plain node descriptors ────────────────────────────────
 // The component library builds SVG as strings, but injecting those with
@@ -1320,7 +1338,7 @@ class Component extends DCLogic {
       } else {
         const src = i.text
           ? TX(0, 0, ESC(i.label == null || i.label === '' ? 'Text' : i.label), i.fs)
-          : c.d(i.sw) + (i.label && showLabels ? TX(0, c.h / 2 + 20, ESC(i.label), 20) : '');
+          : c.d(i.sw) + compLabel(i, c, showLabels);
         const nodes = scaleNodes(toNodes(src), i.sx, i.sy);
         body += `  <g transform="translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}">${nodesMarkup(nodes)}</g>\n`;
       }
@@ -1518,7 +1536,7 @@ class Component extends DCLogic {
           transform: `translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}`,
           nodes: scaleNodes(nodesFor(withInk(INK_CANVAS, () => i.text
             ? TX(0, 0, ESC(i.label == null || i.label === '' ? 'Text' : i.label), i.fs)
-            : c.d(i.sw) + (i.label && showLabels ? TX(0, c.h / 2 + 20, ESC(i.label), 20) : ''))), i.sx, i.sy),
+            : c.d(i.sw) + compLabel(i, c, showLabels))), i.sx, i.sy),
           bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
           selected: i.id === st.sel,
           onDown: (e) => this.drag(e, i.id, 'move')
@@ -1606,6 +1624,13 @@ class Component extends DCLogic {
       addLabel: sel ? 'Add another' : 'Add to canvas',
       setLabel: (e) => this.patch({ label: e.target.value }),
       labelRef: this.attachLabelInput,
+      // A wire's label rides its midpoint and a text item *is* its label, so
+      // neither has an above/below to choose.
+      showLabelPos: !isWire && !isText,
+      lposBtns: [{ id: 'above', name: 'Above' }, { id: 'below', name: 'Below' }].map(o => ({
+        name: o.name, style: segStyle((src.lpos || 'below') === o.id),
+        onPick: () => this.patch({ lpos: o.id })
+      })),
       symTabs: SYMSETS.map(s => ({
         tab: s.tab, title: s.title,
         style: `flex: 1; height: 27px; padding: 0; font-family: inherit; font-size: 12px; color: ${st.symTab === s.id ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.symTab === s.id ? 'var(--accent)' : 'var(--field)'}; border: 1px solid ${st.symTab === s.id ? 'var(--accent)' : 'var(--field-line)'}; border-radius: 5px; cursor: pointer;`,
