@@ -34,7 +34,8 @@ Then visit <http://localhost:8765/>.
 
 - Four subjects — Physics, Chemistry, Mathematics, Biology — across 14 units,
   including a Trigonometric Functions unit of plotted graphs and an Inheritance
-  unit for Mendelian cross charts
+  unit for Mendelian cross charts whose Punnett square takes its rows, columns
+  and cell contents from the Properties panel
 - Click to place components, drag to move, snap to the grid and to connection
   points; the grid intersection a click will land on is marked, and Alt places
   freely

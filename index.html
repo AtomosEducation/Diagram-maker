@@ -487,6 +487,35 @@
                 </div>
               </sc-if>
             </div>
+            <sc-if value="{{ isPunnett }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                <div style="display: flex; gap: 8px;">
+                  <div style="flex: 1; display: flex; align-items: center; gap: 5px;">
+                    <span style="flex: 1; font-size: 12px; color: var(--fg-2);">Rows</span>
+                    <button onClick="{{ punRowMinus }}" style="{{ punStepStyle }}">−</button>
+                    <span style="min-width: 14px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--fg-3);">{{ punRowsTxt }}</span>
+                    <button onClick="{{ punRowPlus }}" style="{{ punStepStyle }}">+</button>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="flex: 1; font-size: 12px; color: var(--fg-2);">Columns</span>
+                  <button onClick="{{ punColMinus }}" style="{{ punStepStyle }}">−</button>
+                  <span style="min-width: 14px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--fg-3);">{{ punColsTxt }}</span>
+                  <button onClick="{{ punColPlus }}" style="{{ punStepStyle }}">+</button>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <sc-for list="{{ punGrid }}" as="pr" hint-placeholder-count="3">
+                    <div style="display: flex; gap: 4px;">
+                      <sc-for list="{{ pr.cells }}" as="pc" hint-placeholder-count="3">
+                        <input value="{{ pc.v }}" onChange="{{ pc.onSet }}" placeholder="{{ pc.ph }}" title="{{ pc.title }}" style="{{ pc.style }}" style-focus="border-color: var(--accent-fg);" />
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+                <button onClick="{{ punFill }}" style="height: 30px; font-family: inherit; font-size: 12px; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Fill cells from gametes</button>
+                <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Top row and left column are the gametes; the rest are the offspring.</span>
+              </div>
+            </sc-if>
             <sc-if value="{{ showTransform }}" hint-placeholder-val="{{ true }}">
               <div style="display: flex; flex-direction: column; gap: 8px;">
                 <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
@@ -1172,7 +1201,44 @@ const textComp = (i) => {
   const tall = i.deco && i.deco !== 'none';
   return { name: 'Text label', w: Math.max(16, s.length * i.fs * 0.56), h: i.fs * (tall ? 1.8 : 1.3), t: [[0, 0]] };
 };
-const compOf = (i) => i.text ? textComp(i) : IDX[i.key];
+// ── Punnett squares ───────────────────────────────────────────────────────
+// The grid is data on the item rather than a fixed glyph: `ptop` and `pleft`
+// hold the gametes along the two headers, `pcell` the body. Everything else -
+// bounds, hit box, terminals - is derived from the size, the same way a text
+// item derives its own.
+const PUN_CELL = 46;
+const punRows = (i) => (i.pleft || []).length || 2;
+const punCols = (i) => (i.ptop || []).length || 2;
+const punInit = (rows, cols) => ({
+  ptop: Array.from({ length: cols }, () => ''),
+  pleft: Array.from({ length: rows }, () => ''),
+  pcell: Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''))
+});
+const punnettComp = (i) => ({
+  ...IDX[i.key],
+  w: (punCols(i) + 1) * PUN_CELL,
+  h: (punRows(i) + 1) * PUN_CELL
+});
+const punDraw = (sw, it) => {
+  const rows = it ? punRows(it) : 2, cols = it ? punCols(it) : 2;
+  const W = (cols + 1) * PUN_CELL, H = (rows + 1) * PUN_CELL;
+  const x0 = -W / 2, y0 = -H / 2;
+  let d = '';
+  for (let c = 0; c <= cols + 1; c++) d += `M${(x0 + c * PUN_CELL).toFixed(1)} ${y0} V${(y0 + H).toFixed(1)} `;
+  for (let r = 0; r <= rows + 1; r++) d += `M${x0} ${(y0 + r * PUN_CELL).toFixed(1)} H${(x0 + W).toFixed(1)} `;
+  let out = P(d.trim(), sw);
+  if (!it) return out;
+  const mid = (n) => x0 + (n + 0.5) * PUN_CELL, midY = (n) => y0 + (n + 0.5) * PUN_CELL;
+  const fs = Math.min(20, PUN_CELL * 0.42);
+  (it.ptop || []).forEach((t, c) => { if (t) out += TX(mid(c + 1), midY(0), ESC(t), fs); });
+  (it.pleft || []).forEach((t, r) => { if (t) out += TX(mid(0), midY(r + 1), ESC(t), fs); });
+  (it.pcell || []).forEach((row, r) => (row || []).forEach((t, c) => {
+    if (t) out += TX(mid(c + 1), midY(r + 1), ESC(t), fs);
+  }));
+  return out;
+};
+
+const compOf = (i) => i.text ? textComp(i) : ((IDX[i.key] || {}).punnett ? punnettComp(i) : IDX[i.key]);
 const termOffsets = (c, sx, sy, rot, flip) => {
   const ts = c.t || [[-c.w / 2, 0], [c.w / 2, 0]];
   const fx = (flip ? -1 : 1) * sx, a = rot * Math.PI / 180;
@@ -1496,14 +1562,8 @@ const LIB = [
         d: (s) => ARROW(-48, -26, 48, 26, s, 9) + ARROW(48, -26, -48, 26, s, 9) },
       // — Punnett squares —
       // A header row and column plus the cells, so a 2x2 cross is a 3x3 grid.
-      { id: 'punnett2', name: 'Punnett 2×2', w: 140, h: 140, d: (s) => {
-          const g = [-63, -21, 21, 63];
-          return P(g.map(v => `M-63 ${v} H63 M${v} -63 V63`).join(' '), s);
-        } },
-      { id: 'punnett4', name: 'Punnett 4×4', w: 190, h: 190, d: (s) => {
-          const g = [-85, -51, -17, 17, 51, 85];
-          return P(g.map(v => `M-85 ${v} H85 M${v} -85 V85`).join(' '), s);
-        } }
+      { id: 'punnett2', name: 'Punnett 2×2', punnett: true, defRows: 2, defCols: 2, w: 138, h: 138, d: punDraw },
+      { id: 'punnett4', name: 'Punnett 4×4', punnett: true, defRows: 4, defCols: 4, w: 230, h: 230, d: punDraw }
     ]}
   ]}
 ];
@@ -1822,7 +1882,7 @@ class Component extends DCLogic {
     if (fit) { x = fit.x; y = fit.y; }
     this.commit(null);
     this.setState(s => ({
-      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label || c.defLabel || '' }),
+      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label || c.defLabel || '', ...(c.punnett ? punInit(c.defRows, c.defCols) : {}) }),
       nextId: s.nextId + 1, sel: s.nextId
     }));
   }
@@ -2071,6 +2131,44 @@ class Component extends DCLogic {
     }
   }
 
+  // ── Punnett editing ─────────────────────────────────────────────────────
+  // Resizing keeps whatever was already typed and only pads or trims the ends,
+  // so adding a column does not scatter the cells already filled in.
+  punResize(dRows, dCols) {
+    const it = this.selItem; if (!it) return;
+    const rows = Math.max(1, Math.min(8, punRows(it) + dRows));
+    const cols = Math.max(1, Math.min(8, punCols(it) + dCols));
+    const fit = (arr, n) => Array.from({ length: n }, (_, k) => (arr && arr[k]) || '');
+    this.patch({
+      ptop: fit(it.ptop, cols),
+      pleft: fit(it.pleft, rows),
+      pcell: Array.from({ length: rows }, (_, r) => fit((it.pcell || [])[r], cols))
+    });
+  }
+
+  punSet(kind, r, c, v) {
+    const it = this.selItem; if (!it) return;
+    if (kind === 'top') this.patch({ ptop: (it.ptop || []).map((x, k) => k === c ? v : x) });
+    else if (kind === 'left') this.patch({ pleft: (it.pleft || []).map((x, k) => k === r ? v : x) });
+    else this.patch({ pcell: (it.pcell || []).map((row, k) => k === r ? row.map((x, j) => j === c ? v : x) : row) });
+  }
+
+  // Combine each row and column gamete into the cell they meet in. Upper case
+  // first, which is how a dominant allele is written in a genotype pair.
+  punFill() {
+    const it = this.selItem; if (!it) return;
+    const top = it.ptop || [], left = it.pleft || [];
+    this.patch({ pcell: Array.from({ length: punRows(it) }, (_, r) =>
+      Array.from({ length: punCols(it) }, (_, c) => {
+        const a = (left[r] || '').trim(), b = (top[c] || '').trim();
+        if (!a || !b) return ((it.pcell || [])[r] || [])[c] || '';
+        return [a, b].sort((x, y) => {
+          const ux = x === x.toUpperCase(), uy = y === y.toUpperCase();
+          return ux === uy ? x.localeCompare(y) : (ux ? -1 : 1);
+        }).join('');
+      })) });
+  }
+
   patch(o) {
     this.commit('patch:' + Object.keys(o).join(',') + ':' + this.state.sel);
     if (this.state.sel) this.setState(s => ({ items: s.items.map(i => i.id === s.sel ? { ...i, ...o } : i) }));
@@ -2129,7 +2227,7 @@ class Component extends DCLogic {
       } else {
         const src = i.text
           ? textHtml(i)
-          : c.d(i.sw) + compLabel(i, c, showLabels);
+          : c.d(i.sw, i) + compLabel(i, c, showLabels);
         const nodes = scaleNodes(toNodes(src), i.sx, i.sy);
         body += `  <g transform="translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}">${nodesMarkup(nodes)}</g>\n`;
       }
@@ -2444,7 +2542,7 @@ class Component extends DCLogic {
           transform: `translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}`,
           nodes: scaleNodes(nodesFor(withInk(INK_CANVAS, () => i.text
             ? textHtml(i)
-            : c.d(i.sw) + compLabel(i, c, showLabels))), i.sx, i.sy),
+            : c.d(i.sw, i) + compLabel(i, c, showLabels))), i.sx, i.sy),
           bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
           selected: i.id === st.sel,
           onDown: (e) => this.drag(e, i.id, 'move')
@@ -2620,6 +2718,41 @@ class Component extends DCLogic {
           onPick: () => this.setState({ sel: i.id, pick: null, draw: null, cursor: null, symTab: null })
         };
       }),
+
+      // ── Punnett square ────────────────────────────────────────────────
+      isPunnett: !!(sel && (IDX[sel.key] || {}).punnett),
+      punRowsTxt: sel ? punRows(sel) : 2,
+      punColsTxt: sel ? punCols(sel) : 2,
+      punStepStyle: 'width: 24px; height: 24px; padding: 0; font-family: inherit; font-size: 13px; line-height: 1; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 4px; cursor: pointer;',
+      punRowPlus: () => this.punResize(1, 0),
+      punRowMinus: () => this.punResize(-1, 0),
+      punColPlus: () => this.punResize(0, 1),
+      punColMinus: () => this.punResize(0, -1),
+      punFill: () => this.punFill(),
+      // The editor mirrors the table: gametes across the top and down the
+      // left, offspring in the middle, and the corner left blank.
+      punGrid: (() => {
+        if (!sel || !(IDX[sel.key] || {}).punnett) return [];
+        const rows = punRows(sel), cols = punCols(sel);
+        const cellStyle = (head) => `width: 100%; min-width: 0; height: 26px; padding: 0 4px; font-family: inherit; font-size: 11.5px; text-align: center; color: ${head ? 'var(--accent-fg)' : 'var(--fg)'}; background: var(--field); border: 1px solid var(--field-line); border-radius: 4px; outline: none;`;
+        const out = [];
+        for (let r = 0; r <= rows; r++) {
+          const cells = [];
+          for (let c = 0; c <= cols; c++) {
+            if (r === 0 && c === 0) {
+              cells.push({ v: '', ph: '', title: '', style: 'width: 100%; min-width: 0; height: 26px; border: 1px dashed var(--ctl-line); border-radius: 4px; background: transparent; pointer-events: none;', onSet: () => {} });
+            } else if (r === 0) {
+              cells.push({ v: (sel.ptop || [])[c - 1] || '', ph: 'T', title: 'Gamete, column ' + c, style: cellStyle(true), onSet: (e) => this.punSet('top', 0, c - 1, e.target.value) });
+            } else if (c === 0) {
+              cells.push({ v: (sel.pleft || [])[r - 1] || '', ph: 'T', title: 'Gamete, row ' + r, style: cellStyle(true), onSet: (e) => this.punSet('left', r - 1, 0, e.target.value) });
+            } else {
+              cells.push({ v: ((sel.pcell || [])[r - 1] || [])[c - 1] || '', ph: '', title: `Row ${r}, column ${c}`, style: cellStyle(false), onSet: (e) => this.punSet('cell', r - 1, c - 1, e.target.value) });
+            }
+          }
+          out.push({ cells });
+        }
+        return out;
+      })(),
 
       labelRef: this.attachLabelInput,
       // A wire's label rides its midpoint and a text item *is* its label, so
