@@ -32,8 +32,9 @@ Then visit <http://localhost:8765/>.
 
 ## Features
 
-- Three subjects — Physics, Chemistry, Mathematics — across 13 units,
-  including a Trigonometric Functions unit of plotted graphs
+- Four subjects — Physics, Chemistry, Mathematics, Biology — across 14 units,
+  including a Trigonometric Functions unit of plotted graphs and an Inheritance
+  unit for Mendelian cross charts
 - Click to place components, drag to move, snap to the grid and to connection
   points; the grid intersection a click will land on is marked, and Alt places
   freely

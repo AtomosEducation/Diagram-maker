@@ -1464,6 +1464,47 @@ const LIB = [
       { id: 'sphere', name: 'Sphere', w: 120, h: 120, d: (s) => C(0, 0, 54, s) + ELL(0, 0, 54, 17, s, '5 5') },
       { id: 'hemisphere', name: 'Hemisphere', w: 120, h: 90, d: (s) => P('M-54 12 A54 54 0 0 1 54 12', s) + ELL(0, 12, 54, 16, s) }
     ]}
+  ]},
+  { id: 'biology', name: 'Biology', units: [
+    { id: 'inheritance', name: 'Inheritance', comps: [
+      // — Generation markers —
+      // Fixed notation, so the glyph carries the text. Anything the user needs
+      // to change instead gets an editable label, below.
+      { id: 'pgen', name: 'P generation', w: 44, h: 40, d: (s) => TX(0, 0, 'P', 26) },
+      { id: 'f1gen', name: 'F₁ generation', w: 52, h: 40, d: (s) => TX(0, 0, 'F₁', 26) },
+      { id: 'f2gen', name: 'F₂ generation', w: 52, h: 40, d: (s) => TX(0, 0, 'F₂', 26) },
+      // — Editable boxes —
+      // lgap 0 puts the label at the component's own centre rather than beside
+      // it, so the text sits inside the box or circle and stays editable.
+      { id: 'pheno', name: 'Phenotype box', w: 152, h: 56, defLabel: 'Tall', lgap: 0,
+        t: [[0, -28], [0, 28], [-76, 0], [76, 0]], d: (s) => P('M-72 -24 H72 V24 H-72 Z', s) },
+      { id: 'geno', name: 'Genotype box', w: 112, h: 46, defLabel: 'TT', lgap: 0,
+        t: [[0, -23], [0, 23], [-56, 0], [56, 0]],
+        d: (s) => P('M-46 -20 H46 A6 6 0 0 1 52 -14 V14 A6 6 0 0 1 46 20 H-46 A6 6 0 0 1 -52 14 V-14 A6 6 0 0 1 -46 -20 Z', s) },
+      { id: 'gamete', name: 'Gamete', w: 48, h: 48, defLabel: 'T', lgap: 0,
+        t: [[0, -24], [0, 24], [-24, 0], [24, 0]], d: (s) => C(0, 0, 21, s) },
+      // — Cross symbols —
+      { id: 'crossx', name: 'Cross (×)', w: 40, h: 40, d: (s) => P('M-13 -13 L13 13 M13 -13 L-13 13', s) },
+      { id: 'selfcross', name: 'Self-cross', w: 42, h: 42, d: (s) => C(0, 0, 15, s) + P('M-10.6 -10.6 L10.6 10.6 M10.6 -10.6 L-10.6 10.6', s) },
+      { id: 'female', name: 'Female ♀', w: 36, h: 54, d: (s) => C(0, -9, 11, s) + P('M0 2 V23 M-8 14 H8', s) },
+      { id: 'male', name: 'Male ♂', w: 44, h: 48, d: (s) => C(-5, 7, 11, s) + P('M3 -1 L15 -13 M8 -13 H15 V-6', s) },
+      // — Connectors —
+      { id: 'downarrow', name: 'Arrow down', w: 28, h: 64, t: [[0, -28], [0, 28]], d: (s) => ARROW(0, -28, 0, 28, s, 10) },
+      { id: 'split2', name: 'Split (1→2)', w: 100, h: 66, t: [[0, -30], [-42, 24], [42, 24]],
+        d: (s) => P('M0 -30 V-8 M-42 -8 H42', s) + ARROW(-42, -8, -42, 24, s, 9) + ARROW(42, -8, 42, 24, s, 9) },
+      { id: 'gcross', name: 'Gamete crossing', w: 110, h: 64, t: [[-48, -26], [48, -26], [-48, 26], [48, 26]],
+        d: (s) => ARROW(-48, -26, 48, 26, s, 9) + ARROW(48, -26, -48, 26, s, 9) },
+      // — Punnett squares —
+      // A header row and column plus the cells, so a 2x2 cross is a 3x3 grid.
+      { id: 'punnett2', name: 'Punnett 2×2', w: 140, h: 140, d: (s) => {
+          const g = [-63, -21, 21, 63];
+          return P(g.map(v => `M-63 ${v} H63 M${v} -63 V63`).join(' '), s);
+        } },
+      { id: 'punnett4', name: 'Punnett 4×4', w: 190, h: 190, d: (s) => {
+          const g = [-85, -51, -17, 17, 51, 85];
+          return P(g.map(v => `M-85 ${v} H85 M${v} -85 V85`).join(' '), s);
+        } }
+    ]}
   ]}
 ];
 
@@ -2147,13 +2188,14 @@ class Component extends DCLogic {
     const ICONS = {
       physics: '<circle cx="12" cy="12" r="2.4"></circle><ellipse cx="12" cy="12" rx="10" ry="4.4"></ellipse><ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(60 12 12)"></ellipse><ellipse cx="12" cy="12" rx="10" ry="4.4" transform="rotate(120 12 12)"></ellipse>',
       chemistry: '<path d="M9 3h6M10.5 3v5L5 19a1.6 1.6 0 0 0 1.4 2.4h11.2A1.6 1.6 0 0 0 19 19l-5.5-11V3"></path><path d="M7.4 15h9.2"></path>',
-      mathematics: '<path d="M4 20L12 4l8 16"></path><path d="M8.5 13.5h7"></path><circle cx="12" cy="4" r="1.6"></circle>'
+      mathematics: '<path d="M4 20L12 4l8 16"></path><path d="M8.5 13.5h7"></path><circle cx="12" cy="4" r="1.6"></circle>',
+      biology: '<path d="M8 3c0 6 8 8 8 14a5 5 0 0 1-8 4"></path><path d="M16 3c0 6-8 8-8 14a5 5 0 0 0 8 4"></path><path d="M9.2 7h5.6M8.4 12h7.2M9.2 17h5.6"></path>'
     };
     // These end up as SVG stroke attributes, where var() does not resolve, so
     // each theme needs its own literal values.
     const SUBCOLOR = dark
-      ? { physics: '#6ccb95', chemistry: '#e5a663', mathematics: '#7ab6e8' }
-      : { physics: '#2b7d55', chemistry: '#a06a1c', mathematics: '#2f6ea8' };
+      ? { physics: '#6ccb95', chemistry: '#e5a663', mathematics: '#7ab6e8', biology: '#b79ae0' }
+      : { physics: '#2b7d55', chemistry: '#a06a1c', mathematics: '#2f6ea8', biology: '#6d4fa8' };
     const q = st.query.trim().toLowerCase();
     // Snapping actually in force right now, toggle minus the Alt override.
     const snapLive = st.snap && !st.altDown;
