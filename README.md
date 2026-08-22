@@ -43,6 +43,8 @@ Then visit <http://localhost:8765/>.
   back later; each unit keeps its own shelf, stored on the device, and the
   whole library exports to a JSON file to carry to another machine
 - Wire tool: click each corner, double-click to finish; straight or right-angle routing
+- Congruence marks for Plane Geometry — one, two and three ticks, a cross, and
+  single or double chevrons for parallel sides
 - Plane Geometry drawing tools — segment, ray, polygon, arc and circle, all drawn
   by clicking on the canvas, with solid/dashed/dotted line styles and an
   adjustable curvature on arcs

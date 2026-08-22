@@ -1369,7 +1369,18 @@ const LIB = [
       { id: 'pgram', name: 'Parallelogram', w: 150, h: 90, d: (s) => P('M-48 -38 H70 L48 38 H-70 Z', s) },
       { id: 'arcseg', name: 'Arc', w: 110, h: 70, d: (s) => P('M-50 26 A56 56 0 0 1 50 26', s) },
       { id: 'angle', name: 'Angle', w: 120, h: 90, d: (s) => P('M-52 34 H56 M-52 34 L44 -34', s) + P('M-14 34 A38 38 0 0 0 -18 18', s) + TX(-6, 20, '\u03b8', 12) },
-      { id: 'perp', name: 'Perpendicular', w: 110, h: 90, d: (s) => P('M-50 36 H50 M0 36 V-36 M0 20 H16 V36', s) }
+      { id: 'perp', name: 'Perpendicular', w: 110, h: 90, d: (s) => P('M-50 36 H50 M0 36 V-36 M0 20 H16 V36', s) },
+      // — Congruence marks —
+      // Drawn upright, so a mark dropped on a horizontal side already sits
+      // across it, and Rotation set to the side's angle keeps it square to any
+      // other side. Their single connection point is the centre, since a mark
+      // is placed onto a line rather than joined end to end.
+      { id: 'tick1', name: 'Tick (1)', w: 16, h: 28, t: [[0, 0]], d: (s) => P('M0 -10 V10', s) },
+      { id: 'tick2', name: 'Tick (2)', w: 22, h: 28, t: [[0, 0]], d: (s) => P('M-4 -10 V10 M4 -10 V10', s) },
+      { id: 'tick3', name: 'Tick (3)', w: 30, h: 28, t: [[0, 0]], d: (s) => P('M-8 -10 V10 M0 -10 V10 M8 -10 V10', s) },
+      { id: 'tickx', name: 'Cross tick', w: 24, h: 26, t: [[0, 0]], d: (s) => P('M-8 -9 L8 9 M8 -9 L-8 9', s) },
+      { id: 'par1', name: 'Parallel (1)', w: 20, h: 26, t: [[0, 0]], d: (s) => P('M-5 -9 L5 0 L-5 9', s) },
+      { id: 'par2', name: 'Parallel (2)', w: 28, h: 26, t: [[0, 0]], d: (s) => P('M-10 -9 L0 0 L-10 9 M0 -9 L10 0 L0 9', s) }
     ]},
     { id: 'coordinate', name: 'Coordinate Geometry', comps: [
       { id: 'axes', name: 'X\u2013Y axes', w: 240, h: 200, d: (s) => ARROW(-110, 0, 110, 0, s, 9) + ARROW(0, 90, 0, -90, s, 9) + TX(102, 16, 'x', 14) + TX(15, -82, 'y', 14) + TX(-11, 13, 'O', 13) },
