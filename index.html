@@ -593,7 +593,7 @@
             <sc-if value="{{ showWeight }}" hint-placeholder-val="{{ true }}">
             <label style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
               <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Line weight</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pSwTxt }}</span></span>
-              <input type="range" min="1" max="4" step="0.2" value="{{ pSw }}" onChange="{{ cfgSw }}" style="width: 100%;" />
+              <input type="range" min="1" max="4" step="0.2" value="{{ pSw }}" onChange="{{ setSw }}" style="width: 100%;" />
             </label>
             </sc-if>
             <div style="display: flex; gap: 8px;">
