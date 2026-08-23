@@ -70,6 +70,8 @@ Then visit <http://localhost:8765/>.
 
 ## Notes
 
+- Exported text is centred with an explicit `dy` rather than
+  `dominant-baseline`, which Illustrator ignores.
 - The exported SVG pulls DM Sans via a Google Fonts `@import`, which Illustrator and
   InDesign ignore — text falls back to a generic sans. Convert text to outlines if you
   need exact type in print.

@@ -261,7 +261,7 @@
                   <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                 </sc-if>
                 <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                  <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                 </sc-if>
               </sc-for>
             </svg>
@@ -331,7 +331,7 @@
                     <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                    <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                    <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
                 </sc-for>
               </g>
@@ -359,7 +359,7 @@
                     <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                    <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                    <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
                 </sc-for>
               </g>
@@ -440,7 +440,7 @@
                         <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                       </sc-if>
                       <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                        <text x="{{ n.x }}" y="{{ n.y }}" transform="{{ n.tr }}" text-anchor="middle" dominant-baseline="central" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                        <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                       </sc-if>
                     </sc-for>
                   </svg>
@@ -683,13 +683,19 @@ const withFont = (f, fn) => { const prev = FONT; FONT = f; try { return fn(); } 
 // builders are plain functions with no access to state. Both render entry
 // points set it before they build anything.
 let LABEL_FS = 20;
-const TX = (x, y, t, fs) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none">${t}</text>`;
+// Vertical centring is done with an explicit dy rather than
+// dominant-baseline: Illustrator ignores dominant-baseline, so text exported
+// with it drops onto its own baseline and sits low by a fraction of the font
+// size - which is why the error grew as a box was scaled up. 0.35em reproduces
+// what the browser's "central" does, measured against both diagram faces.
+const BASE_DY = 0.35;
+const TX = (x, y, t, fs) => `<text x="${x}" y="${y}" dy="${((fs || 14) * BASE_DY).toFixed(2)}" text-anchor="middle" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none">${t}</text>`;
 // Text rotated about its own anchor, so a label pivots in place instead of
 // swinging away from what it labels.
 const TXR = (x, y, t, fs, deg) => {
   const fx = +x.toFixed(2), fy = +y.toFixed(2);
   if (!deg) return TX(fx, fy, t, fs);
-  return `<text x="${fx}" y="${fy}" text-anchor="middle" dominant-baseline="central" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none" transform="rotate(${deg.toFixed(2)} ${fx} ${fy})">${t}</text>`;
+  return `<text x="${fx}" y="${fy}" dy="${((fs || 14) * BASE_DY).toFixed(2)}" text-anchor="middle" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none" transform="rotate(${deg.toFixed(2)} ${fx} ${fy})">${t}</text>`;
 };
 const ARROW = (x1, y1, x2, y2, sw, h) => {
   const a = Math.atan2(y2 - y1, x2 - x1), s = h || 8;
@@ -801,7 +807,7 @@ const toNodes = (html, def) => {
     // <span class="sc-interp">, and a span inside an SVG <text> is created in
     // the SVG namespace, so it paints nothing. An array is passed through as
     // fragment children instead, which yields a real text node.
-    else if (el.tagName === 'text') out.push({ ...common, isText: true, x: num('x'), y: num('y'), fs: num('font-size') || 14, ff: g('font-family') || FONTS.sans, t: [el.textContent] });
+    else if (el.tagName === 'text') out.push({ ...common, isText: true, x: num('x'), y: num('y'), dy: num('dy'), fs: num('font-size') || 14, ff: g('font-family') || FONTS.sans, t: [el.textContent] });
   }
   return out;
 };
@@ -851,7 +857,7 @@ const scaleNodes = (nodes, sx, sy) => (sx === 1 && sy === 1) ? nodes : nodes.map
   if (n.isPath) return { ...n, d: scalePath(n.d, sx, sy) };
   if (n.isEllipse) return { ...n, cx: n.cx * sx, cy: n.cy * sy, rx: n.rx * sx, ry: n.ry * sy };
   // Glyphs cannot be stretched per-axis via font-size, so they take the mean.
-  if (n.isText) return { ...n, x: n.x * sx, y: n.y * sy, fs: n.fs * Math.sqrt(sx * sy) };
+  if (n.isText) { const f = Math.sqrt(sx * sy); return { ...n, x: n.x * sx, y: n.y * sy, dy: (n.dy || 0) * f, fs: n.fs * f }; }
   return n;
 });
 // Serialise nodes back to markup so the export renders the identical geometry.
@@ -862,7 +868,7 @@ const nodesMarkup = (nodes) => nodes.map(n => {
   const stroke = n.stroke === 'none' ? ' stroke="none"' : ` stroke="${n.stroke}" stroke-width="${n.sw}"${dash}`;
   if (n.isPath) return `<path d="${n.d}" fill="${n.fill}"${stroke}${n.stroke === 'none' ? '' : ' stroke-linecap="round" stroke-linejoin="round"'}/>`;
   if (n.isEllipse) return `<ellipse cx="${n.cx}" cy="${n.cy}" rx="${n.rx}" ry="${n.ry}" fill="${n.fill}"${stroke}/>`;
-  if (n.isText) return `<text x="${n.x}" y="${n.y}"${n.tr ? ` transform="${n.tr}"` : ''} text-anchor="middle" dominant-baseline="central" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}" fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
+  if (n.isText) return `<text x="${n.x}" y="${n.y}" dy="${(+(n.dy || 0)).toFixed(2)}"${n.tr ? ` transform="${n.tr}"` : ''} text-anchor="middle" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}" fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
   return '';
 }).join('');
 
