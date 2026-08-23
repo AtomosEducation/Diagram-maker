@@ -1225,6 +1225,28 @@ const punnettComp = (i) => ({
   w: (punCols(i) + 1) * PUN_CELL,
   h: (punRows(i) + 1) * PUN_CELL
 });
+// Actual rendered width, so a cell shrinks by what the glyphs really take
+// rather than by a per-character guess: 'TTYY' and 'llll' are not the same
+// width. Falls back to the estimate used elsewhere if no canvas is available.
+let _measCtx = null;
+const textW = (txt, fs, fam) => {
+  try {
+    if (!_measCtx) _measCtx = document.createElement('canvas').getContext('2d');
+    _measCtx.font = `${fs}px ${fam}`;
+    return _measCtx.measureText(String(txt)).width;
+  } catch (err) {
+    return String(txt).length * fs * 0.56;
+  }
+};
+// Step a cell's type down until it fits, with a floor so it stays readable.
+const punFs = (txt) => {
+  // A little narrower than the cell, since measureText runs slightly under
+  // what the glyphs actually occupy once rendered.
+  const base = Math.min(20, PUN_CELL * 0.42), room = PUN_CELL - 13;
+  const w = textW(txt, base, FONT);
+  return w <= room ? base : Math.max(6, base * room / w);
+};
+
 const punDraw = (sw, it) => {
   const rows = it ? punRows(it) : 2, cols = it ? punCols(it) : 2;
   const W = (cols + 1) * PUN_CELL, H = (rows + 1) * PUN_CELL;
@@ -1235,11 +1257,10 @@ const punDraw = (sw, it) => {
   let out = P(d.trim(), sw);
   if (!it) return out;
   const mid = (n) => x0 + (n + 0.5) * PUN_CELL, midY = (n) => y0 + (n + 0.5) * PUN_CELL;
-  const fs = Math.min(20, PUN_CELL * 0.42);
-  (it.ptop || []).forEach((t, c) => { if (t) out += TX(mid(c + 1), midY(0), ESC(t), fs); });
-  (it.pleft || []).forEach((t, r) => { if (t) out += TX(mid(0), midY(r + 1), ESC(t), fs); });
+  (it.ptop || []).forEach((t, c) => { if (t) out += TX(mid(c + 1), midY(0), ESC(t), punFs(t)); });
+  (it.pleft || []).forEach((t, r) => { if (t) out += TX(mid(0), midY(r + 1), ESC(t), punFs(t)); });
   (it.pcell || []).forEach((row, r) => (row || []).forEach((t, c) => {
-    if (t) out += TX(mid(c + 1), midY(r + 1), ESC(t), fs);
+    if (t) out += TX(mid(c + 1), midY(r + 1), ESC(t), punFs(t));
   }));
   return out;
 };
