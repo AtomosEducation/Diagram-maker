@@ -415,12 +415,16 @@
         </div>
         <!-- Free-standing text, always reachable: it belongs to the canvas
              rather than to any component, so it is not in the palette. -->
-        <div style="padding: 0 12px 12px; display: flex; gap: 6px;">
-          <button onClick="{{ addText }}" title="Place a text label anywhere on the canvas" style="{{ textPanelStyle }}">
+        <div style="padding: 0 12px 12px; display: flex; flex-wrap: wrap; gap: 6px;">
+          <button onClick="{{ selectTool }}" title="Select and edit elements (V)" style="{{ selectPanelStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M5 3l6.5 17 2.2-6.6 6.8-2.3z"></path></svg>
+            Select
+          </button>
+          <button onClick="{{ addText }}" title="Place a text label anywhere on the canvas (T)" style="{{ textPanelStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M4 7V5h16v2M12 5v14M9 19h6"></path></svg>
             {{ textPanelLabel }}
           </button>
-          <button onClick="{{ addDim }}" title="Measure between two points on the canvas" style="{{ dimPanelStyle }}">
+          <button onClick="{{ addDim }}" title="Measure between two points on the canvas (D)" style="{{ dimPanelStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M3 12h18M3 12l4-3M3 12l4 3M21 12l-4-3M21 12l-4 3"></path></svg>
             {{ dimPanelLabel }}
           </button>
@@ -1680,6 +1684,13 @@ class Component extends DCLogic {
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); this.redo(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && !typing) { e.preventDefault(); this.duplicateSel(); }
+      // Tool shortcuts, plain keys only so they never shadow a browser command.
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && !typing) {
+        const k = e.key.toLowerCase();
+        if (k === 'v') { e.preventDefault(); this.setState({ pick: null, draw: null, cursor: null }); }
+        if (k === 't') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })); }
+        if (k === 'd') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })); }
+      }
     };
     this._keyUp = (e) => {
       if (e.code === 'Space') this._space = false;
@@ -2372,9 +2383,13 @@ class Component extends DCLogic {
       // label doubles as the instruction once the tool is armed.
       textPanelLabel: st.pick === TEXT_KEY ? 'Placing…' : 'Text',
       addDim: () => this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })),
+      // Select is simply "no tool armed", so it lights up whenever nothing is
+      // being placed, and keeps the current selection rather than clearing it.
+      selectTool: () => this.setState({ pick: null, draw: null, cursor: null }),
+      selectPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${!st.pick && !st.draw ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${!st.pick && !st.draw ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${!st.pick && !st.draw ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
       dimPanelLabel: st.pick === DIM_KEY ? 'Click 2 points' : 'Dimension',
-      dimPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1; height: 32px; padding: 0 10px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === DIM_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
-      textPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 7px; flex: 1; height: 32px; padding: 0 10px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer;`,
+      dimPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === DIM_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
+      textPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === TEXT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === TEXT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer;`,
 
       themeClass: dark ? 'thm thm-dark' : 'thm thm-light',
       isDark: dark, isLight: !dark,
