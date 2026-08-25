@@ -380,6 +380,9 @@
             <sc-for list="{{ handles }}" as="hd" hint-placeholder-count="0">
               <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="5" fill="#ffffff" stroke="#a8790c" stroke-width="1.6" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
             </sc-for>
+            <sc-if value="{{ anglePick }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ anglePick }}" fill="none" stroke="#1d6fb8" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.55" style="pointer-events: none;"></path>
+            </sc-if>
             <sc-if value="{{ gridHint }}" hint-placeholder-val="{{ false }}">
               <path d="{{ gridHint }}" fill="none" stroke="#a8790c" stroke-width="1.3" vector-effect="non-scaling-stroke" style="pointer-events: none;"></path>
             </sc-if>
@@ -471,6 +474,21 @@
                       <button onClick="{{ dc.onPick }}" title="{{ dc.title }}" style="{{ dc.style }}">{{ dc.name }}</button>
                     </sc-for>
                   </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ showAngle }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                  <span style="font-size: 12px; color: var(--fg-2);">Angle mark</span>
+                  <div style="display: flex; gap: 5px;">
+                    <sc-for list="{{ angleStyleBtns }}" as="ab" hint-placeholder-count="2">
+                      <button onClick="{{ ab.onPick }}" style="{{ ab.style }}">{{ ab.name }}</button>
+                    </sc-for>
+                  </div>
+                  <label style="display: flex; flex-direction: column; gap: 7px;">
+                    <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Radius</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pAradTxt }}</span></span>
+                    <input type="range" min="12" max="60" step="2" value="{{ pArad }}" onChange="{{ setArad }}" style="width: 100%;" />
+                  </label>
+                  <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">{{ angleHint }}</span>
                 </div>
               </sc-if>
               <sc-if value="{{ showFill }}" hint-placeholder-val="{{ false }}">
@@ -786,7 +804,8 @@ const ESC = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 // clears tall parts like the bulbs either way. The canvas and the export both
 // call this so the two can never drift apart.
 const compLabel = (it, comp, show) => {
-  if (!show || !it.label) return '';
+  // An angle puts its own label on the bisector, not beside the shape.
+  if (!show || !it.label || (comp && comp.angle)) return '';
   const off = comp.lgap != null ? comp.lgap : comp.h / 2 + 20;
   return TX(0, it.lpos === 'above' ? -off : off, ESC(it.label), LABEL_FS);
 };
@@ -975,6 +994,61 @@ const arcD = (a, b, bulge) => {
   return `M${a.x} ${a.y} A${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} ${h > 0 ? 1 : 0} ${b.x} ${b.y}`;
 };
 const circleR = (it) => Math.hypot(it.pts[1].x - it.pts[0].x, it.pts[1].y - it.pts[0].y);
+
+// ── Angle marks ───────────────────────────────────────────────────────────
+// Placed by clicking two lines rather than dropped at a point: the vertex is
+// where those two lines meet, and the arc sweeps between the directions the
+// user actually clicked along, so the mark lands on the side they meant.
+const segDist = (p, a, b) => {
+  const vx = b.x - a.x, vy = b.y - a.y, wx = p.x - a.x, wy = p.y - a.y;
+  const den = vx * vx + vy * vy;
+  const t = den ? Math.max(0, Math.min(1, (wx * vx + wy * vy) / den)) : 0;
+  return Math.hypot(wx - t * vx, wy - t * vy);
+};
+// Where two infinite lines cross, or null when they are parallel.
+const lineCross = (a1, a2, b1, b2) => {
+  const dx1 = a2.x - a1.x, dy1 = a2.y - a1.y, dx2 = b2.x - b1.x, dy2 = b2.y - b1.y;
+  const den = dx1 * dy2 - dy1 * dx2;
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((b1.x - a1.x) * dy2 - (b1.y - a1.y) * dx2) / den;
+  return { x: a1.x + dx1 * t, y: a1.y + dy1 * t };
+};
+// Of a segment's two ends, head toward whichever lies on the side that was
+// clicked, so the mark opens the way the user pointed.
+const dirToward = (v, a, b, c) => {
+  const cx = c.x - v.x, cy = c.y - v.y;
+  const da = { x: a.x - v.x, y: a.y - v.y }, db = { x: b.x - v.x, y: b.y - v.y };
+  const d = (da.x * cx + da.y * cy) >= (db.x * cx + db.y * cy) ? da : db;
+  return Math.atan2(d.y, d.x);
+};
+const ANG_R = (it) => (it && it.arad != null ? it.arad : 26);
+const angleComp = (i) => ({ ...IDX[i.key], w: (ANG_R(i) + 16) * 2, h: (ANG_R(i) + 16) * 2 });
+const angleDraw = (sw, it) => {
+  const f = (v) => v.toFixed(1);
+  if (!it) {
+    // Palette preview: two rays with an arc between them.
+    return P('M-30 20 H30 M-30 20 L18 -22', sw) + P('M-8 20 A22 22 0 0 0 -4 6', sw);
+  }
+  const r = ANG_R(it), a1 = it.a1 || 0;
+  let diff = (it.a2 || 0) - a1;
+  while (diff <= -Math.PI) diff += 2 * Math.PI;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  const p1 = { x: r * Math.cos(a1), y: r * Math.sin(a1) };
+  const p2 = { x: r * Math.cos(a1 + diff), y: r * Math.sin(a1 + diff) };
+  let out;
+  if (it.astyle === 'right') {
+    // The square corner, closed on the far side from the vertex.
+    out = P(`M${f(p1.x)} ${f(p1.y)} L${f(p1.x + p2.x)} ${f(p1.y + p2.y)} L${f(p2.x)} ${f(p2.y)}`, sw);
+  } else {
+    out = P(`M${f(p1.x)} ${f(p1.y)} A${r} ${r} 0 0 ${diff > 0 ? 1 : 0} ${f(p2.x)} ${f(p2.y)}`, sw);
+  }
+  if (it.label) {
+    // On the bisector, outside the arc, which is where an angle is labelled.
+    const b = a1 + diff / 2, d = r + LABEL_FS * 0.9;
+    out += TX(d * Math.cos(b), d * Math.sin(b), ESC(it.label), LABEL_FS);
+  }
+  return out;
+};
 // Arrow head for drawn lines. The old AHEAD sized itself from the stroke alone,
 // which put a ~7 unit head on a 200 unit ray — present, but small enough to
 // read as missing. Size is now its own property, and the head can be a filled
@@ -1281,7 +1355,13 @@ const punDraw = (sw, it) => {
   return out;
 };
 
-const compOf = (i) => i.text ? textComp(i) : ((IDX[i.key] || {}).punnett ? punnettComp(i) : IDX[i.key]);
+const compOf = (i) => {
+  if (i.text) return textComp(i);
+  const c = IDX[i.key] || {};
+  if (c.punnett) return punnettComp(i);
+  if (c.angle) return angleComp(i);
+  return IDX[i.key];
+};
 const termOffsets = (c, sx, sy, rot, flip) => {
   const ts = c.t || [[-c.w / 2, 0], [c.w / 2, 0]];
   const fx = (flip ? -1 : 1) * sx, a = rot * Math.PI / 180;
@@ -1465,6 +1545,7 @@ const LIB = [
         d: (s) => P('M0 -50 L54 -12 L34 50 H-34 L-54 -12 Z', s) },
       { id: 'darc', name: 'Arc (draw)', wire: true, kind: 'arc', w: 120, h: 80,
         d: (s) => P('M-52 28 A58 58 0 0 1 52 28', s) + DOT(-52, 28, 3.4) + DOT(52, 28, 3.4) },
+      { id: 'dangle', name: 'Angle (mark)', angle: true, w: 84, h: 84, d: angleDraw },
       { id: 'dcircle', name: 'Circle (draw)', wire: true, kind: 'circle', w: 120, h: 120,
         d: (s) => C(0, 0, 52, s) + DOT(0, 0, 3.4) },
       // The letter used to be baked into the glyph, so it could never be
@@ -1644,9 +1725,11 @@ class Component extends DCLogic {
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null, cursorFree: false, altDown: false,
+    // First line chosen while marking an angle, waiting for the second.
+    angleSel: null,
     // Id of the text item being typed into directly on the canvas.
     editId: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow' }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow', astyle: 'arc', arad: 26 }
   });
 
   // Written from renderVals, the one place that runs after every state change,
@@ -1692,7 +1775,7 @@ class Component extends DCLogic {
       if (e.key === 'Enter' && this.state.draw && !typing) { e.preventDefault(); this.finishWire(); }
       if (e.key === 'Escape') {
         if (this.state.draw) this.setState({ draw: null, cursor: null });
-        else this.setState({ sel: null, pick: null });
+        else this.setState({ sel: null, pick: null, angleSel: null });
       }
       if (e.code === 'Space' && !typing) { this._space = true; if (e.target === document.body) e.preventDefault(); }
       if ((e.key === '0' || e.key === ')') && (e.ctrlKey || e.metaKey) && !typing) { e.preventDefault(); this.zoomTo(1); }
@@ -1934,6 +2017,17 @@ class Component extends DCLogic {
     }
     const c = IDX[key];
     if (c.wire) { this.addWire(key, defaultPts(key, x, y)); return; }
+    // Added from the panel rather than by clicking two lines, so it gets a
+    // plain upper-left quadrant to be rotated into place.
+    if (c.angle) {
+      this.commit(null);
+      this.setState(s => ({
+        items: s.items.concat({ id: s.nextId, key, x, y, sx: 1, sy: 1, rot: 0, flip: false, sw: d.sw, label: '',
+          a1: Math.PI, a2: -Math.PI / 2, astyle: d.astyle || 'arc', arad: d.arad == null ? 26 : d.arad }),
+        nextId: s.nextId + 1, sel: s.nextId
+      }));
+      return;
+    }
     const fit = this.snapByTerminals({ x, y }, termOffsets(c, d.sx, d.sy, d.rot, d.flip), null);
     if (fit) { x = fit.x; y = fit.y; }
     this.commit(null);
@@ -1990,6 +2084,7 @@ class Component extends DCLogic {
       this.setState(s => ({ draw: { ...s.draw, pts }, cursor: p }));
       return;
     }
+    if (key && key !== TEXT_KEY && (IDX[key] || {}).angle) { this.angleClick(raw); return; }
     if (key && key !== TEXT_KEY && IDX[key].wire) {
       this.setState({ draw: { key, pts: [p] }, cursor: p, sel: null });
       return;
@@ -2010,6 +2105,46 @@ class Component extends DCLogic {
   };
 
   onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
+
+  // ── Marking an angle ────────────────────────────────────────────────────
+  // Nearest drawn line under the point, as an item plus which of its segments.
+  nearestLine(p, limit) {
+    let best = null, bd = limit || 14;
+    this.state.items.forEach(i => {
+      if (!i.wire) return;
+      const k = kindOf(i);
+      if (k === 'circle' || k === 'arc') return;      // no straight edge to work from
+      const pts = k === 'polygon' ? i.pts.concat([i.pts[0]]) : i.pts;
+      for (let n = 0; n + 1 < pts.length; n++) {
+        const d = segDist(p, pts[n], pts[n + 1]);
+        if (d < bd) { bd = d; best = { id: i.id, seg: n, a: pts[n], b: pts[n + 1] }; }
+      }
+    });
+    return best;
+  }
+
+  angleClick(p) {
+    const hit = this.nearestLine(p);
+    if (!hit) return;
+    const first = this.state.angleSel;
+    if (!first) { this.setState({ angleSel: { ...hit, click: p } }); return; }
+    if (first.id === hit.id && first.seg === hit.seg) return;   // same line twice
+    const v = lineCross(first.a, first.b, hit.a, hit.b);
+    // Parallel lines never meet, so there is no angle to mark.
+    if (!v) { this.setState({ angleSel: null }); return; }
+    const a1 = dirToward(v, first.a, first.b, first.click);
+    const a2 = dirToward(v, hit.a, hit.b, p);
+    const d = this.state.draft;
+    this.commit(null);
+    this.setState(s => ({
+      items: s.items.concat({
+        id: s.nextId, key: s.pick, x: Math.round(v.x * 10) / 10, y: Math.round(v.y * 10) / 10,
+        sx: 1, sy: 1, rot: 0, flip: false, sw: d.sw, label: '',
+        a1, a2, astyle: d.astyle || 'arc', arad: d.arad == null ? 26 : d.arad
+      }),
+      nextId: s.nextId + 1, sel: s.nextId, angleSel: null
+    }));
+  }
 
   drag(e, id, mode) {
     // Every item carries an invisible hit box a little larger than itself. With
@@ -2864,6 +2999,17 @@ class Component extends DCLogic {
       // A wire's label rides its midpoint and a text item *is* its label, so
       // neither has an above/below to choose.
       showLabelPos: (!isWire && !isText) || drawKind === 'dim',
+      showAngle: !!((sel ? IDX[sel.key] : pickComp) || {}).angle,
+      angleHint: st.angleSel
+        ? 'First line chosen — now click the second.'
+        : (sel && (IDX[sel.key] || {}).angle ? 'Vertex and opening come from the two lines that were clicked.' : 'Click the two lines the angle sits between.'),
+      angleStyleBtns: [{ id: 'arc', name: 'Arc' }, { id: 'right', name: 'Right angle' }].map(o => ({
+        name: o.name, style: segStyle((src.astyle || 'arc') === o.id),
+        onPick: () => this.patch({ astyle: o.id })
+      })),
+      pArad: ANG_R(src), pAradTxt: ANG_R(src) + 'px',
+      setArad: (e) => this.patch({ arad: parseFloat(e.target.value) }),
+      anglePick: (() => { const a = st.angleSel; return a ? `M${a.a.x} ${a.a.y} L${a.b.x} ${a.b.y}` : ''; })(),
       showFill: !!((sel ? IDX[sel.key] : pickComp) || {}).hollowable,
       fillBtns: [{ id: false, name: 'Filled' }, { id: true, name: 'Hollow' }].map(o => ({
         name: o.name, style: segStyle(!!src.hollow === o.id),
