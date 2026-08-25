@@ -592,21 +592,42 @@
                 </div>
               </sc-if>
             </div>
+            <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 9px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="flex: 1; font-size: 12px; color: var(--fg-2);">Vertical lines</span>
+                  <button onClick="{{ gridVMinus }}" title="One fewer vertical line" style="{{ stepBtnStyle }}">−</button>
+                  <span style="min-width: 18px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--fg-3);">{{ gridVTxt }}</span>
+                  <button onClick="{{ gridVPlus }}" title="One more vertical line" style="{{ stepBtnStyle }}">+</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <span style="flex: 1; font-size: 12px; color: var(--fg-2);">Horizontal lines</span>
+                  <button onClick="{{ gridHMinus }}" title="One fewer horizontal line" style="{{ stepBtnStyle }}">−</button>
+                  <span style="min-width: 18px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--fg-3);">{{ gridHTxt }}</span>
+                  <button onClick="{{ gridHPlus }}" title="One more horizontal line" style="{{ stepBtnStyle }}">+</button>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                  <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Spacing</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ gridStepTxt }}</span></span>
+                  <input type="range" min="5" max="100" step="1" value="{{ gridStepVal }}" onChange="{{ setGridStep }}" style="width: 100%;" />
+                </div>
+                <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">{{ gridExtentTxt }}</span>
+              </div>
+            </sc-if>
             <sc-if value="{{ isPunnett }}" hint-placeholder-val="{{ false }}">
               <div style="display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
                 <div style="display: flex; gap: 8px;">
                   <div style="flex: 1; display: flex; align-items: center; gap: 5px;">
                     <span style="flex: 1; font-size: 12px; color: var(--fg-2);">Rows</span>
-                    <button onClick="{{ punRowMinus }}" style="{{ punStepStyle }}">−</button>
+                    <button onClick="{{ punRowMinus }}" style="{{ stepBtnStyle }}">−</button>
                     <span style="min-width: 14px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--fg-3);">{{ punRowsTxt }}</span>
-                    <button onClick="{{ punRowPlus }}" style="{{ punStepStyle }}">+</button>
+                    <button onClick="{{ punRowPlus }}" style="{{ stepBtnStyle }}">+</button>
                   </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 5px;">
                   <span style="flex: 1; font-size: 12px; color: var(--fg-2);">Columns</span>
-                  <button onClick="{{ punColMinus }}" style="{{ punStepStyle }}">−</button>
+                  <button onClick="{{ punColMinus }}" style="{{ stepBtnStyle }}">−</button>
                   <span style="min-width: 14px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--fg-3);">{{ punColsTxt }}</span>
-                  <button onClick="{{ punColPlus }}" style="{{ punStepStyle }}">+</button>
+                  <button onClick="{{ punColPlus }}" style="{{ stepBtnStyle }}">+</button>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                   <sc-for list="{{ punGrid }}" as="pr" hint-placeholder-count="3">
@@ -1385,6 +1406,29 @@ const textComp = (i) => {
 // bounds, hit box, terminals - is derived from the size, the same way a text
 // item derives its own.
 const PUN_CELL = 46;
+// ── Coordinate grid ───────────────────────────────────────────────────────
+// Line counts and spacing ride on the item rather than being baked into the
+// palette entry, so one component covers everything from a 3x3 sketch to a
+// full sheet of graph paper. The lines stop exactly at the outermost line on
+// each side, which is what makes a grid read as a grid.
+const gridN = (v, d) => Math.max(2, Math.min(41, Math.round(v == null ? d : v)));
+const gridV = (i) => gridN(i.gcols, 5);
+const gridH = (i) => gridN(i.grows, 5);
+const gridStep = (i) => Math.max(5, Math.min(100, Math.round(i.gstep == null ? 40 : i.gstep)));
+const gridDraw = (cols, rows, step, sw) => {
+  const w = (cols - 1) * step, h = (rows - 1) * step;
+  const x0 = -w / 2, y0 = -h / 2;
+  let d = '';
+  for (let k = 0; k < cols; k++) d += `M${+(x0 + k * step).toFixed(1)} ${y0} V${-y0} `;
+  for (let k = 0; k < rows; k++) d += `M${x0} ${+(y0 + k * step).toFixed(1)} H${-x0} `;
+  return `<path d="${d.trim()}" fill="none" stroke="${INK}" stroke-width="${Math.max(0.7, sw * 0.5)}"/>`;
+};
+const gridComp = (i) => {
+  const cols = gridV(i), rows = gridH(i), step = gridStep(i);
+  return { ...IDX[i.key], w: (cols - 1) * step, h: (rows - 1) * step,
+    d: (sw) => gridDraw(cols, rows, step, sw) };
+};
+
 const punRows = (i) => (i.pleft || []).length || 2;
 const punCols = (i) => (i.ptop || []).length || 2;
 const punInit = (rows, cols) => ({
@@ -1446,6 +1490,7 @@ const compOf = (i) => {
   if (i.text) return textComp(i);
   const c = IDX[i.key] || {};
   if (c.punnett) return punnettComp(i);
+  if (c.grid) return gridComp(i);
   if (c.angle) return angleComp(i);
   return IDX[i.key] || MISSING_COMP;
 };
@@ -1662,7 +1707,7 @@ const LIB = [
     ]},
     { id: 'coordinate', name: 'Coordinate Geometry', comps: [
       { id: 'axes', name: 'X\u2013Y axes', w: 240, h: 200, d: (s) => ARROW(-110, 0, 110, 0, s, 9) + ARROW(0, 90, 0, -90, s, 9) + TX(102, 16, 'x', 14) + TX(15, -82, 'y', 14) + TX(-11, 13, 'O', 13) },
-      { id: 'quadgrid', name: 'Grid', w: 200, h: 200, d: (s) => { let d = ''; for (let i = -2; i <= 2; i++) { d += `M${i * 40} -90 V90 M-90 ${i * 40} H90 `; } return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${Math.max(0.7, s * 0.5)}"/>`; } },
+      { id: 'quadgrid', name: 'Grid', grid: true, w: 160, h: 160, d: (s) => gridDraw(5, 5, 40, s) },
       { id: 'plotpt', name: 'Plotted point', w: 40, h: 40, d: (s) => DOT(0, 0, 4.5) + TX(0, -16, '(x, y)', 12) },
       { id: 'straight', name: 'Line y = mx + c', w: 190, h: 130, d: (s) => P('M-86 52 L86 -52', s) },
       { id: 'parabola', name: 'Parabola', w: 170, h: 140, d: (s) => P('M-74 -62 C-30 66 30 66 74 -62', s) },
@@ -3600,10 +3645,24 @@ class Component extends DCLogic {
       }),
 
       // ── Punnett square ────────────────────────────────────────────────
+      // ── Coordinate grid ───────────────────────────────────────────────
+      isGrid: !!(sel && (IDX[sel.key] || {}).grid),
+      gridVTxt: sel ? gridV(sel) : 5,
+      gridHTxt: sel ? gridH(sel) : 5,
+      gridStepVal: sel ? gridStep(sel) : 40,
+      gridStepTxt: (sel ? gridStep(sel) : 40) + 'px',
+      gridExtentTxt: !sel ? '' : `${(gridV(sel) - 1) * gridStep(sel)} × ${(gridH(sel) - 1) * gridStep(sel)} px before scaling.`,
+      // Stepped through patchLive so a run of clicks composes instead of each
+      // one recomputing from the value this render was built with.
+      gridVMinus: () => this.patchLive(i => ({ gcols: gridN(gridV(i) - 1) })),
+      gridVPlus: () => this.patchLive(i => ({ gcols: gridN(gridV(i) + 1) })),
+      gridHMinus: () => this.patchLive(i => ({ grows: gridN(gridH(i) - 1) })),
+      gridHPlus: () => this.patchLive(i => ({ grows: gridN(gridH(i) + 1) })),
+      setGridStep: (e) => this.patch({ gstep: parseInt(e.target.value, 10) }),
       isPunnett: !!(sel && (IDX[sel.key] || {}).punnett),
       punRowsTxt: sel ? punRows(sel) : 2,
       punColsTxt: sel ? punCols(sel) : 2,
-      punStepStyle: 'width: 24px; height: 24px; padding: 0; font-family: inherit; font-size: 13px; line-height: 1; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 4px; cursor: pointer;',
+      stepBtnStyle: 'width: 24px; height: 24px; padding: 0; font-family: inherit; font-size: 13px; line-height: 1; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 4px; cursor: pointer;',
       punRowPlus: () => this.punResize(1, 0),
       punRowMinus: () => this.punResize(-1, 0),
       punColPlus: () => this.punResize(0, 1),

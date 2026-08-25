@@ -54,6 +54,9 @@ Then visit <http://localhost:8765/>.
 - Plane Geometry drawing tools — segment, ray, polyline, polygon, arc and circle, all drawn
   by clicking on the canvas, with solid/dashed/dotted line styles and an
   adjustable curvature on arcs
+- The Coordinate Geometry grid is built to order — set how many vertical and
+  horizontal lines it has and how far apart they sit, anything from a 2×2 box
+  to a full sheet of graph paper
 - Thumbnail strip of everything on the canvas, so any element can be selected
   from the Properties panel without hunting for it
 - Per-element label, size, rotation, flip and line weight
