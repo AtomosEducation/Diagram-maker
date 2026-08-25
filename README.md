@@ -66,6 +66,8 @@ Then visit <http://localhost:8765/>.
   with vector bar, arrow, hat or dots drawn over it
 - Dimension tool — click two points to measure between them, with arrow, dot
   or bar ends and the label above or below the line
+- Selecting anything floats a small bar over its box — flip, rotate 90°,
+  duplicate and delete, without crossing to the Properties panel
 - Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Settings popover — grid size (snapping follows at half steps), default line
   width, text size, label size and export margin, remembered between sessions

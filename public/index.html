@@ -310,6 +310,15 @@
           <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
             <input ref="{{ editRef }}" value="{{ editValue }}" onChange="{{ setEditValue }}" style="{{ editStyle }}" />
           </sc-if>
+          <sc-if value="{{ selBar }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ selBarStyle }}">
+              <sc-for list="{{ selBarBtns }}" as="b" hint-placeholder-count="4">
+                <button onClick="{{ b.onClick }}" title="{{ b.title }}" style="{{ b.style }}" style-hover="background: var(--ctl-hover);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><path d="{{ b.icon }}"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
           <svg ref="{{ svgRef }}" viewBox="{{ viewBox }}" preserveAspectRatio="none" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onDoubleClick="{{ onCanvasDouble }}" style="display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none;">
             <defs>
               <pattern id="g-lines" width="{{ gridSize }}" height="{{ gridSize }}" patternUnits="userSpaceOnUse">
@@ -2483,6 +2492,16 @@ class Component extends DCLogic {
     if (this.state.sel) this.setState(s => ({ items: s.items.map(i => i.id === s.sel ? { ...i, ...o } : i) }));
     else this.setState(s => ({ draft: { ...s.draft, ...o } }));
   }
+
+  // patch(), but the change is derived from the element as it stands rather
+  // than as it was when the handler was built. Turning something through 180°
+  // is two clicks on one button, and the second lands before the re-render.
+  patchLive(fn) {
+    const cur = this.state.sel
+      ? this.state.items.find(i => i.id === this.state.sel)
+      : this.state.draft;
+    if (cur) this.patch(fn(cur));
+  }
   remove() { this.commit(null); this.setState(s => ({ items: s.items.filter(i => i.id !== s.sel), sel: null })); }
 
   // Copy of the selection, offset so it does not hide the original, and left
@@ -3137,6 +3156,58 @@ class Component extends DCLogic {
           + ` background: #ffffff; border: 1.5px solid var(--accent); border-radius: 4px; outline: none; padding: 1px 4px;`;
       })(),
 
+      // ── The action bar over the selection ─────────────────────────────
+      // Flip, turn, copy and delete are what you reach for between almost every
+      // other edit, so they sit just above the dashed box rather than across the
+      // canvas in Properties. Placed against the axis-aligned screen bounds, so
+      // the bar stays level and stays put as the element turns underneath it.
+      selBar: !!sel && !editItem,
+      selBarStyle: (() => {
+        if (!sel || editItem) return 'display: none;';
+        const z = st.view.z, gut = st.rulers ? 22 : 0;
+        let cx, top, bot;
+        if (sel.wire) {
+          const b = wireBounds(sel), m = Math.max(10, sel.sw * 5);
+          cx = (b.minX + b.maxX) / 2; top = b.minY - m; bot = b.maxY + m;
+        } else {
+          const c = compOf(sel), a = sel.rot * Math.PI / 180;
+          const hw = c.w * sel.sx / 2 + 6 / z, hh = c.h * sel.sy / 2 + 6 / z;
+          const ey = hw * Math.abs(Math.sin(a)) + hh * Math.abs(Math.cos(a));
+          cx = sel.x; top = sel.y - ey; bot = sel.y + ey;
+        }
+        // A component carries a rotate knob 20px above its box; clear it.
+        const gap = sel.wire ? 12 : 32;
+        const BAR_H = 32, half = (sel.wire ? 3 : 4) * 27 / 2 + 4;
+        let y = gut + (top - vb.y) * z - gap, anchor = '-100%';
+        // Against the top of the viewport there is no room above, so the bar
+        // drops under the element rather than off the edge.
+        if (y - BAR_H < gut + 2) { y = gut + (bot - vb.y) * z + 12; anchor = '0'; }
+        const left = Math.min(Math.max(gut + (cx - vb.x) * z, gut + half + 2), st.vp.w - half - 2);
+        return `position: absolute; left: ${left.toFixed(1)}px; top: ${y.toFixed(1)}px;`
+          + ` transform: translate(-50%, ${anchor}); z-index: 6; display: flex; gap: 1px; padding: 3px;`
+          + ` background: var(--panel); border: 1px solid var(--line); border-radius: 7px;`
+          + ` box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); white-space: nowrap;`;
+      })(),
+      selBarBtns: (!sel || editItem) ? [] : [
+        { id: 'flip', title: sel.wire ? 'Reverse direction' : 'Flip horizontally',
+          icon: 'M12 3v18M8 8l-4 4 4 4M16 8l4 4-4 4',
+          onClick: () => this.patchLive(i => i.wire ? { pts: i.pts.slice().reverse() } : { flip: !i.flip }) },
+        // Turning a polyline would only move its points about, so the wire
+        // family gets the bar without this one.
+        ...(sel.wire ? [] : [{ id: 'rot', title: 'Rotate 90°',
+          icon: 'M20 12a8 8 0 1 1-2.6-5.9M20.5 3.2v4.4H16',
+          onClick: () => this.patchLive(i => ({ rot: ((i.rot + 90 + 180) % 360) - 180 })) }]),
+        { id: 'copy', title: 'Duplicate (Ctrl+D)', icon: 'M9 9h10v10H9zM5 15V5h10v4',
+          onClick: () => this.duplicateSel() },
+        { id: 'del', title: 'Delete (Del)', icon: 'M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6',
+          onClick: () => this.remove() }
+      ].map(b => ({
+        title: b.title, icon: b.icon, onClick: b.onClick,
+        style: 'display: flex; align-items: center; justify-content: center; width: 26px; height: 24px;'
+          + ` padding: 0; color: ${b.id === 'del' ? 'var(--danger)' : 'var(--fg-2)'};`
+          + ' background: transparent; border: none; border-radius: 5px; cursor: pointer;'
+      })),
+
       labelRef: this.attachLabelInput,
       // A wire's label rides its midpoint and a text item *is* its label, so
       // neither has an above/below to choose.
@@ -3197,8 +3268,8 @@ class Component extends DCLogic {
       setScale: (e) => { const v = parseFloat(e.target.value); this.patch({ sx: v, sy: v }); },
       setRot: (e) => this.patch({ rot: parseInt(e.target.value, 10) }),
       setSw: (e) => this.patch({ sw: parseFloat(e.target.value) }),
-      flipH: () => this.patch(isWire && sel ? { pts: sel.pts.slice().reverse() } : { flip: !src.flip }),
-      rot90: () => this.patch({ rot: ((pRot + 90 + 180) % 360) - 180 }),
+      flipH: () => this.patchLive(i => i.wire ? { pts: i.pts.slice().reverse() } : { flip: !i.flip }),
+      rot90: () => this.patchLive(i => ({ rot: (((i.rot || 0) + 90 + 180) % 360) - 180 })),
       addCenter: () => {
         const key = st.pick || (sel && sel.key); if (!key) return;
         const n = st.items.length;
