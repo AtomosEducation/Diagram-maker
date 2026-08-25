@@ -7,11 +7,13 @@ optics, geometry — and exporting them as clean SVG for print and study materia
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | The whole app: markup, styles and component logic |
-| `support.js` | Runtime the template is built against |
-| `icon.svg` | App icon; the source the other two are rendered from |
-| `favicon.ico` | 32px fallback, also serves the bare `/favicon.ico` request |
-| `apple-touch-icon.png` | 180px icon for iOS home screens |
+| `public/` | Everything that gets published, and nothing else |
+| `public/index.html` | The whole app: markup, styles and component logic |
+| `public/support.js` | Runtime the template is built against |
+| `public/icon.svg` | App icon; the source the other two are rendered from |
+| `public/favicon.ico` | 32px fallback, also serves the bare `/favicon.ico` request |
+| `public/apple-touch-icon.png` | 180px icon for iOS home screens |
+| `wrangler.toml` | Cloudflare deploy config |
 | `.thumbnail` | App thumbnail |
 | `uploads/` | Reference images |
 
@@ -25,7 +27,7 @@ Serve the folder over HTTP (opening the file directly with `file://` will not lo
 `support.js` reliably):
 
 ```bash
-python -m http.server 8765
+python -m http.server 8765 --directory public
 ```
 
 Then visit <http://localhost:8765/>.

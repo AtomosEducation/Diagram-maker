@@ -1,0 +1,21 @@
+# Direct deploy to Cloudflare, no GitHub in the path.
+#
+#   npx wrangler login     (once, opens a browser)
+#   npx wrangler deploy
+#
+# The files are uploaded from this folder straight to Cloudflare's edge, so
+# what you see live is what is on disk here — nothing is fetched from the repo
+# at runtime and there is no CDN cache to wait out.
+#
+# NOTE: `name` decides which Worker this replaces. If your existing Worker is
+# called something else, change this to match it, or deploying creates a second
+# Worker and your domain keeps serving the old one.
+name = "diagram-maker"
+compatibility_date = "2026-08-01"
+
+# Everything in public/ is published, and nothing else is. An allow-list, not
+# an ignore-list: .assetsignore was not honoured here, and with the repo root
+# as the assets directory that would have published .git — 165 files of history
+# — to the open internet.
+[assets]
+directory = "public"
