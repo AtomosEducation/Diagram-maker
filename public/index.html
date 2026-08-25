@@ -484,6 +484,16 @@
                       <button onClick="{{ ab.onPick }}" style="{{ ab.style }}">{{ ab.name }}</button>
                     </sc-for>
                   </div>
+                  <sc-if value="{{ showAngleArrow }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <span style="font-size: 11.5px; color: var(--fg-3);">Arrow head</span>
+                      <div style="display: flex; gap: 5px;">
+                        <sc-for list="{{ angleArrowBtns }}" as="aa" hint-placeholder-count="3">
+                          <button onClick="{{ aa.onPick }}" style="{{ aa.style }}">{{ aa.name }}</button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
                   <label style="display: flex; flex-direction: column; gap: 7px;">
                     <span style="display: flex; justify-content: space-between; font-size: 12px; color: var(--fg-2);"><span>Radius</span><span style="font-family: 'DM Mono', monospace; color: var(--fg-3);">{{ pAradTxt }}</span></span>
                     <input type="range" min="12" max="60" step="2" value="{{ pArad }}" onChange="{{ setArad }}" style="width: 100%;" />
@@ -1041,6 +1051,16 @@ const angleDraw = (sw, it) => {
     out = P(`M${f(p1.x)} ${f(p1.y)} L${f(p1.x + p2.x)} ${f(p1.y + p2.y)} L${f(p2.x)} ${f(p2.y)}`, sw);
   } else {
     out = P(`M${f(p1.x)} ${f(p1.y)} A${r} ${r} 0 0 ${diff > 0 ? 1 : 0} ${f(p2.x)} ${f(p2.y)}`, sw);
+    // Heads sit tangent to the arc, pointing the way it travels, and are sized
+    // from the radius so a small angle does not get a head bigger than itself.
+    const aa = it.aarrow || 'none';
+    if (aa !== 'none') {
+      const dir = diff > 0 ? 1 : -1;
+      const tangent = (th) => Math.atan2(dir * Math.cos(th), -dir * Math.sin(th));
+      const hs = Math.max(5, Math.min(AH_SIZE(it), r * 0.55));
+      out += AHEAD2(p2.x, p2.y, tangent(a1 + diff), hs, it.ahStyle, sw);
+      if (aa === 'both') out += AHEAD2(p1.x, p1.y, tangent(a1) + Math.PI, hs, it.ahStyle, sw);
+    }
   }
   if (it.label) {
     // On the bisector, outside the arc, which is where an angle is labelled.
@@ -1727,7 +1747,7 @@ class Component extends DCLogic {
     angleSel: null,
     // Id of the text item being typed into directly on the canvas.
     editId: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow', astyle: 'arc', arad: 26 }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow', astyle: 'arc', arad: 26, aarrow: 'none' }
   });
 
   // Written from renderVals, the one place that runs after every state change,
@@ -2021,7 +2041,7 @@ class Component extends DCLogic {
       this.commit(null);
       this.setState(s => ({
         items: s.items.concat({ id: s.nextId, key, x, y, sx: 1, sy: 1, rot: 0, flip: false, sw: d.sw, label: '',
-          a1: Math.PI, a2: -Math.PI / 2, astyle: d.astyle || 'arc', arad: d.arad == null ? 26 : d.arad }),
+          a1: Math.PI, a2: -Math.PI / 2, astyle: d.astyle || 'arc', arad: d.arad == null ? 26 : d.arad, aarrow: d.aarrow || 'none' }),
         nextId: s.nextId + 1, sel: s.nextId
       }));
       return;
@@ -2138,7 +2158,7 @@ class Component extends DCLogic {
       items: s.items.concat({
         id: s.nextId, key: s.pick, x: Math.round(v.x * 10) / 10, y: Math.round(v.y * 10) / 10,
         sx: 1, sy: 1, rot: 0, flip: false, sw: d.sw, label: '',
-        a1, a2, astyle: d.astyle || 'arc', arad: d.arad == null ? 26 : d.arad
+        a1, a2, astyle: d.astyle || 'arc', arad: d.arad == null ? 26 : d.arad, aarrow: d.aarrow || 'none'
       }),
       nextId: s.nextId + 1, sel: s.nextId, angleSel: null
     }));
@@ -3004,6 +3024,15 @@ class Component extends DCLogic {
       angleStyleBtns: [{ id: 'arc', name: 'Arc' }, { id: 'right', name: 'Right angle' }].map(o => ({
         name: o.name, style: segStyle((src.astyle || 'arc') === o.id),
         onPick: () => this.patch({ astyle: o.id })
+      })),
+      // Heads belong on the arc; a square right-angle corner has nowhere to
+      // put one, so the control goes away with it.
+      showAngleArrow: (src.astyle || 'arc') !== 'right',
+      angleArrowBtns: [
+        { id: 'none', name: 'None' }, { id: 'end', name: 'One' }, { id: 'both', name: 'Both' }
+      ].map(o => ({
+        name: o.name, style: segStyle((src.aarrow || 'none') === o.id),
+        onPick: () => this.patch({ aarrow: o.id })
       })),
       pArad: ANG_R(src), pAradTxt: ANG_R(src) + 'px',
       setArad: (e) => this.patch({ arad: parseFloat(e.target.value) }),
