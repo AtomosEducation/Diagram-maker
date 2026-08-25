@@ -73,7 +73,8 @@ Then visit <http://localhost:8765/>.
 - Select, Text and Dimension tools in the Properties panel, on V, T and D
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search
-- Export the artwork as SVG
+- Export the artwork as SVG, or copy it to the clipboard to paste straight into
+  a vector editor
 
 ## Notes
 

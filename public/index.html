@@ -121,6 +121,10 @@
         Settings
       </button>
       <button onClick="{{ clearCanvas }}" style="height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: var(--fg-3); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="color: var(--danger); background: var(--danger-bg);">Clear</button>
+      <button onClick="{{ copySvg }}" title="Copy the artwork to the clipboard, ready to paste into Illustrator" style="{{ copyBtnStyle }}" style-hover="background: var(--ctl-hover);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg>
+        {{ copyLabel }}
+      </button>
       <button onClick="{{ exportSvg }}" style="display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: var(--on-accent); background: var(--accent); border: 1px solid var(--accent); border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;" style-hover="background: var(--accent-2); border-color: var(--accent-2);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11M8 11l4 4 4-4M4 19h16"></path></svg>
         Export SVG
@@ -1734,6 +1738,8 @@ class Component extends DCLogic {
     gridSize: 20, labelFs: 20, exportPad: EXPORT_PAD, settingsOpen: false,
     // Left panel: the component palette, or this unit's saved diagrams.
     panelTab: 'components', library: loadLibrary(), libName: '', libError: '',
+    // Transient feedback on the Copy SVG button.
+    copyState: '',
     // Name awaiting delete confirmation, and the import/export status line.
     libConfirm: null, libIoMsg: '',
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
@@ -1831,6 +1837,7 @@ class Component extends DCLogic {
     window.removeEventListener('keydown', this._key);
     window.removeEventListener('keyup', this._keyUp);
     window.removeEventListener('blur', this._blur);
+    clearTimeout(this._copyT);
     if (this._ro) this._ro.disconnect();
   }
 
@@ -2469,6 +2476,33 @@ class Component extends DCLogic {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x} ${b.y} ${b.w} ${b.h}" width="${b.w}" height="${b.h}">\n<defs>\n  <style><![CDATA[${fontCss}]]></style>\n</defs>\n${body}</svg>\n`;
   }
 
+  // Put the same artwork the export writes onto the clipboard. Two flavours
+  // go on together: image/svg+xml for anything that understands vector paste,
+  // and the source as plain text, which is what most editors sniff for.
+  copySvg = async () => {
+    const svg = this.svgMarkup(this.state.exportPad);
+    const asText = async () => { await navigator.clipboard.writeText(svg); };
+    try {
+      if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== 'undefined') {
+        await navigator.clipboard.write([new ClipboardItem({
+          'image/svg+xml': new Blob([svg], { type: 'image/svg+xml' }),
+          'text/plain': new Blob([svg], { type: 'text/plain' })
+        })]);
+      } else {
+        await asText();
+      }
+      this.flashCopy('ok');
+    } catch (err) {
+      // A browser that refuses the richer type will still take the source.
+      try { await asText(); this.flashCopy('ok'); } catch (e2) { this.flashCopy('fail'); }
+    }
+  };
+  flashCopy(v) {
+    this.setState({ copyState: v });
+    clearTimeout(this._copyT);
+    this._copyT = setTimeout(() => this.setState({ copyState: '' }), 1800);
+  }
+
   exportSvg = () => {
     const blob = new Blob([this.svgMarkup(this.state.exportPad)], { type: 'image/svg+xml' });
     const a = document.createElement('a');
@@ -2691,6 +2725,9 @@ class Component extends DCLogic {
       cycleGrid: () => this.setState({ grid: gm === 'lines' ? 'dots' : gm === 'dots' ? 'none' : 'lines' }),
       clearCanvas: () => { this.commit(null); this.setState({ items: [], sel: null, draw: null, cursor: null }); },
       exportSvg: this.exportSvg,
+      copySvg: this.copySvg,
+      copyLabel: st.copyState === 'ok' ? 'Copied' : st.copyState === 'fail' ? 'Copy failed' : 'Copy SVG',
+      copyBtnStyle: `display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; font-family: inherit; font-size: 12.5px; color: ${st.copyState === 'ok' ? 'var(--accent-fg)' : st.copyState === 'fail' ? 'var(--danger)' : 'var(--fg-2)'}; background: var(--ctl); border: 1px solid ${st.copyState === 'ok' ? 'var(--accent-line)' : st.copyState === 'fail' ? 'var(--danger-line)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; flex: 0 0 auto; white-space: nowrap;`,
 
       subjectName: sub.name,
       unitName: unit.name,
