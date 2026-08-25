@@ -1561,8 +1561,6 @@ const LIB = [
       { id: 'rect', name: 'Rectangle', w: 140, h: 90, d: (s) => P('M-64 -38 H64 V38 H-64 Z', s) },
       { id: 'pgram', name: 'Parallelogram', w: 150, h: 90, d: (s) => P('M-48 -38 H70 L48 38 H-70 Z', s) },
       { id: 'arcseg', name: 'Arc', w: 110, h: 70, d: (s) => P('M-50 26 A56 56 0 0 1 50 26', s) },
-      { id: 'angle', name: 'Angle', w: 120, h: 90, d: (s) => P('M-52 34 H56 M-52 34 L44 -34', s) + P('M-14 34 A38 38 0 0 0 -18 18', s) + TX(-6, 20, '\u03b8', 12) },
-      { id: 'perp', name: 'Perpendicular', w: 110, h: 90, d: (s) => P('M-50 36 H50 M0 36 V-36 M0 20 H16 V36', s) },
       // — Congruence marks —
       // Drawn upright, so a mark dropped on a horizontal side already sits
       // across it, and Rotation set to the side's angle keeps it square to any
