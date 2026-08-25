@@ -1766,7 +1766,17 @@ const ICON_LIB = [
   { id: 'satellite', name: 'Satellite', w: 100, h: 70, d: (s) => P('M-11 -13 H11 V13 H-11 Z', s)
     + P('M-11 -7 H-40 V7 H-11 M11 -7 H40 V7 H11 M-26 -7 V7 M26 -7 V7', s)
     + P('M0 -13 V-24', s) + P('M-9 -24 A9 9 0 0 1 9 -24', s) },
-  { id: 'hand', name: 'Hand (right-hand rule)', w: 66, h: 84, d: (s) =>
+  // The right-hand rule as it is actually drawn in a physics text: fingers
+  // curled to carry the sense of rotation, thumb stretched along the axis.
+  // Open strokes that meet at the thumb web, so with no fill nothing crosses.
+  { id: 'rhand', name: 'Right-hand rule', w: 68, h: 97, d: (s) =>
+      P('M3 -8 C-3 -17 -17 -19 -25 -12 C-32 -6 -33 2 -26 5'
+      + ' C-32 8 -33 15 -27 18 C-32 21 -32 28 -26 31 C-30 34 -29 40 -23 42'
+      + ' C-13 46 2 47 12 42 C22 37 30 27 31 13 C31 5 30 -2 29 -7', s)
+    + P('M29 -7 C28 -17 27 -27 26 -35 C25 -43 14 -46 9 -40 C2 -33 1 -20 3 -8', s)
+    + P('M-26 5 C-17 3 -10 5 -7 10 M-27 18 C-18 16 -12 17 -9 21'
+      + ' M-26 31 C-18 29 -13 30 -10 33 M5 -15 C11 -11 22 -11 28 -15', s) },
+  { id: 'hand', name: 'Thumbs up', w: 66, h: 84, d: (s) =>
       P('M-6 -14 V-32 A7 7 0 0 1 8 -32 V-8', s)
     + P('M-20 -4 Q-20 -13 -11 -13 H10 A11 11 0 0 1 21 -2 V10 A14 14 0 0 1 7 24 H-6 A14 14 0 0 1 -20 10 Z', s)
     + P('M21 2 H9 M20 10 H9', s) },
