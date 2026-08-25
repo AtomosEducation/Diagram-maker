@@ -226,6 +226,9 @@
               <span style="font-size: 11px; color: var(--danger); line-height: 1.5;">{{ libError }}</span>
             </sc-if>
           </div>
+          <sc-if value="{{ libLoadMsg }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size: 11px; color: var(--danger); line-height: 1.5; padding: 0 2px;">{{ libLoadMsg }}</div>
+          </sc-if>
           <sc-if value="{{ libEmpty }}" hint-placeholder-val="{{ true }}">
             <div style="font-size: 11.5px; color: var(--fg-3); line-height: 1.6; padding: 2px 2px 0;">Nothing saved for this unit yet. Saved diagrams stay on this device and are listed here.</div>
           </sc-if>
@@ -456,21 +459,42 @@
           <div style="padding: 0 12px 12px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
               <sc-for list="{{ iconTiles }}" as="ic" hint-placeholder-count="9">
-                <button onClick="{{ ic.onPick }}" title="{{ ic.name }}" style="{{ ic.style }}" style-hover="background: var(--ctl-hover);">
-                  <svg viewBox="{{ ic.viewBox }}" width="100%" height="40" style="display: block;">
-                    <sc-for list="{{ ic.nodes }}" as="n" hint-placeholder-count="0">
-                      <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
-                        <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round" stroke-linejoin="round"></path>
-                      </sc-if>
-                      <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
-                      </sc-if>
-                    </sc-for>
-                  </svg>
-                  <span style="display: block; font-size: 9.5px; line-height: 1.2; color: var(--fg-3); margin-top: 4px; text-align: center;">{{ ic.name }}</span>
-                </button>
+                <div style="position: relative;">
+                  <sc-if value="{{ ic.asking }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; gap: 4px; padding: 7px 5px; background: var(--ctl); border: 1px solid var(--danger-line); border-radius: 6px;">
+                      <span style="font-size: 9.5px; line-height: 1.25; color: var(--danger); text-align: center;">Remove?</span>
+                      <div style="display: flex; gap: 4px;">
+                        <button onClick="{{ ic.onRemove }}" title="Remove this icon" style="flex: 1; height: 24px; font-family: inherit; font-size: 10.5px; font-weight: 500; color: #ffffff; background: var(--danger); border: 1px solid var(--danger); border-radius: 4px; cursor: pointer;">Yes</button>
+                        <button onClick="{{ ic.onCancel }}" title="Keep this icon" style="flex: 1; height: 24px; font-family: inherit; font-size: 10.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 4px; cursor: pointer;" style-hover="background: var(--ctl-hover);">No</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ ic.idle }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ ic.onPick }}" title="{{ ic.name }}" style="{{ ic.style }}" style-hover="background: var(--ctl-hover);">
+                      <svg viewBox="{{ ic.viewBox }}" width="100%" height="40" style="display: block;">
+                        <sc-for list="{{ ic.nodes }}" as="n" hint-placeholder-count="0">
+                          <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                            <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                          </sc-if>
+                          <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                            <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+                          </sc-if>
+                        </sc-for>
+                      </svg>
+                      <span style="display: block; font-size: 9.5px; line-height: 1.2; color: var(--fg-3); margin-top: 4px; text-align: center; word-break: break-word;">{{ ic.name }}</span>
+                    </button>
+                    <sc-if value="{{ ic.mine }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ ic.onAskRemove }}" title="{{ ic.removeTitle }}" style="position: absolute; top: -4px; right: -4px; width: 17px; height: 17px; padding: 0; line-height: 1; font-family: inherit; font-size: 12px; color: var(--fg-3); background: var(--panel); border: 1px solid var(--ctl-line); border-radius: 50%; cursor: pointer;" style-hover="color: var(--danger); border-color: var(--danger-line);">×</button>
+                    </sc-if>
+                  </sc-if>
+                </div>
               </sc-for>
             </div>
+            <input ref="{{ iconFileRef }}" type="file" accept=".svg,image/svg+xml" multiple onChange="{{ onIconFile }}" style="display: none;" />
+            <button onClick="{{ pickIconFile }}" title="Add your own SVG to this shelf" style="width: 100%; height: 30px; margin-top: 7px; font-family: inherit; font-size: 12px; color: var(--fg-2); background: var(--ctl); border: 1px dashed var(--ctl-line); border-radius: 6px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Upload SVG…</button>
+            <sc-if value="{{ iconMsg }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size: 11px; color: var(--fg-3); line-height: 1.5; padding: 6px 2px 0;">{{ iconMsg }}</div>
+            </sc-if>
           </div>
         </sc-if>
         <sc-if value="{{ hasThumbs }}" hint-placeholder-val="{{ false }}">
@@ -1413,12 +1437,17 @@ const punDraw = (sw, it) => {
   return out;
 };
 
+// A saved diagram can outlive the icon it was drawn with - a user icon removed
+// here, or a file loaded on a machine that never had it. Standing in for the
+// missing key keeps the rest of the drawing openable.
+const MISSING_COMP = { id: 'missing', name: 'Missing icon', w: 60, h: 60,
+  d: (sw) => P('M-26 -26 H26 V26 H-26 Z M-26 -26 L26 26 M26 -26 L-26 26', sw) };
 const compOf = (i) => {
   if (i.text) return textComp(i);
   const c = IDX[i.key] || {};
   if (c.punnett) return punnettComp(i);
   if (c.angle) return angleComp(i);
-  return IDX[i.key];
+  return IDX[i.key] || MISSING_COMP;
 };
 const termOffsets = (c, sx, sy, rot, flip) => {
   const ts = c.t || [[-c.w / 2, 0], [c.w / 2, 0]];
@@ -1761,6 +1790,341 @@ LIB.forEach(s => s.units.forEach(u => u.comps.forEach(c => { IDX[s.id + '/' + u.
 const DIM_KEY = '@dim';
 IDX[DIM_KEY] = { id: 'dim', name: 'Dimension', wire: true, kind: 'dim', w: 120, h: 34 };
 
+// ── Bringing an outside SVG into the component model ──────────────
+// Everything here draws as a flat list of paths in one coordinate space, so an
+// uploaded file has to be flattened to match: groups collapsed, transforms
+// baked into the geometry, every shape rewritten as absolute path data. Colour
+// is dropped on the way in - the palette is monochrome and themed, and a
+// two-tone system would break both the dark tiles and the print export.
+//
+// Nothing from the file is ever inserted into the live document. It is parsed
+// with DOMParser, which does not run scripts, and only geometry is carried
+// across; the markup that renders is built here from that geometry.
+const M_ID = [1, 0, 0, 1, 0, 0];
+const mMul = (m, n) => [
+  m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1],
+  m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+  m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]
+];
+const NUM_RE = /^[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/;
+
+const parseTransform = (s) => {
+  let m = M_ID;
+  const re = /(matrix|translate|scale|rotate|skewX|skewY)\s*\(([^)]*)\)/g;
+  let t;
+  while ((t = re.exec(s || ''))) {
+    const a = (t[2].match(/[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/g) || []).map(Number);
+    const rad = (d) => (d || 0) * Math.PI / 180;
+    let n = M_ID;
+    if (t[1] === 'matrix' && a.length >= 6) n = a.slice(0, 6);
+    else if (t[1] === 'translate') n = [1, 0, 0, 1, a[0] || 0, a[1] || 0];
+    else if (t[1] === 'scale') { const sx = a[0] == null ? 1 : a[0]; n = [sx, 0, 0, a[1] == null ? sx : a[1], 0, 0]; }
+    else if (t[1] === 'rotate') {
+      const c = Math.cos(rad(a[0])), si = Math.sin(rad(a[0]));
+      n = [c, si, -si, c, 0, 0];
+      if (a.length >= 3) n = mMul(mMul([1, 0, 0, 1, a[1], a[2]], n), [1, 0, 0, 1, -a[1], -a[2]]);
+    }
+    else if (t[1] === 'skewX') n = [1, 0, Math.tan(rad(a[0])), 1, 0, 0];
+    else if (t[1] === 'skewY') n = [1, Math.tan(rad(a[0])), 0, 1, 0, 0];
+    m = mMul(m, n);
+  }
+  return m;
+};
+
+// An arc's radii and x-rotation cannot survive an arbitrary matrix, so every
+// arc becomes cubics on the way in. Cubics are affine-invariant.
+const arcToCubics = (x0, y0, rx, ry, xrot, laf, sf, x, y) => {
+  if (!rx || !ry) return [['L', x, y]];
+  rx = Math.abs(rx); ry = Math.abs(ry);
+  const rd = xrot * Math.PI / 180, cs = Math.cos(rd), sn = Math.sin(rd);
+  const dx2 = (x0 - x) / 2, dy2 = (y0 - y) / 2;
+  const x1 = cs * dx2 + sn * dy2, y1 = -sn * dx2 + cs * dy2;
+  const l = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry);
+  if (l > 1) { const s = Math.sqrt(l); rx *= s; ry *= s; }
+  const rx2 = rx * rx, ry2 = ry * ry;
+  const den = rx2 * y1 * y1 + ry2 * x1 * x1;
+  let co = Math.sqrt(Math.max(0, (rx2 * ry2 - den) / den));
+  if (laf === sf) co = -co;
+  const cx1 = co * rx * y1 / ry, cy1 = -co * ry * x1 / rx;
+  const cx = cs * cx1 - sn * cy1 + (x0 + x) / 2;
+  const cy = sn * cx1 + cs * cy1 + (y0 + y) / 2;
+  const ang = (ux, uy, vx, vy) => {
+    const d = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+    const c = d ? Math.max(-1, Math.min(1, (ux * vx + uy * vy) / d)) : 1;
+    return (ux * vy - uy * vx < 0 ? -1 : 1) * Math.acos(c);
+  };
+  const ux = (x1 - cx1) / rx, uy = (y1 - cy1) / ry;
+  const vx = (-x1 - cx1) / rx, vy = (-y1 - cy1) / ry;
+  let th = ang(1, 0, ux, uy), dth = ang(ux, uy, vx, vy);
+  if (!sf && dth > 0) dth -= 2 * Math.PI;
+  if (sf && dth < 0) dth += 2 * Math.PI;
+  const segs = Math.max(1, Math.ceil(Math.abs(dth / (Math.PI / 2))));
+  const dpr = dth / segs, k = 4 / 3 * Math.tan(dpr / 4);
+  const pt = (t) => [cs * rx * Math.cos(t) - sn * ry * Math.sin(t) + cx, sn * rx * Math.cos(t) + cs * ry * Math.sin(t) + cy];
+  const dv = (t) => [-cs * rx * Math.sin(t) - sn * ry * Math.cos(t), -sn * rx * Math.sin(t) + cs * ry * Math.cos(t)];
+  const out = [];
+  let px = x0, py = y0;
+  for (let i = 0; i < segs; i++) {
+    const t0 = th + dpr * i, t1 = t0 + dpr;
+    const [ex, ey] = pt(t1), [d0x, d0y] = dv(t0), [d1x, d1y] = dv(t1);
+    out.push(['C', px + k * d0x, py + k * d0y, ex - k * d1x, ey - k * d1y, ex, ey]);
+    px = ex; py = ey;
+  }
+  return out;
+};
+
+const ARG_N = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
+// Arc flags are single characters and minifiers run them together with what
+// follows ("a1 1 0 0113 0"), so they cannot go through the number scanner.
+const readArgs = (s, up) => {
+  const out = [];
+  let i = 0, k = 0;
+  while (i < s.length) {
+    while (i < s.length && /[\s,]/.test(s[i])) i++;
+    if (i >= s.length) break;
+    if (up === 'A' && (k % 7 === 3 || k % 7 === 4) && (s[i] === '0' || s[i] === '1')) {
+      out.push(Number(s[i])); i++; k++; continue;
+    }
+    const m = NUM_RE.exec(s.slice(i));
+    if (!m || !m[0].length) break;
+    out.push(Number(m[0])); i += m[0].length; k++;
+  }
+  return out;
+};
+
+// Path data -> absolute M/L/C/Q/Z only.
+const pathAbs = (d) => {
+  const out = [];
+  const re = /([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]*)/g;
+  let m, cx = 0, cy = 0, sx = 0, sy = 0, pcx = null, pcy = null, pqx = null, pqy = null;
+  while ((m = re.exec(d))) {
+    const cmd = m[1], up = cmd.toUpperCase(), rel = cmd !== up;
+    const a = readArgs(m[2], up), n = ARG_N[up];
+    if (up === 'Z') { out.push(['Z']); cx = sx; cy = sy; pcx = pqx = null; continue; }
+    if (!a.length) continue;
+    for (let i = 0; i + n <= a.length; i += n) {
+      const g = a.slice(i, i + n);
+      const ax = (v) => rel ? cx + v : v, ay = (v) => rel ? cy + v : v;
+      if (up === 'M') {
+        const x = ax(g[0]), y = ay(g[1]);
+        // Extra coordinate pairs after an M are implicit linetos.
+        out.push([i === 0 ? 'M' : 'L', x, y]);
+        if (i === 0) { sx = x; sy = y; }
+        cx = x; cy = y; pcx = pqx = null;
+      } else if (up === 'L') { cx = ax(g[0]); cy = ay(g[1]); out.push(['L', cx, cy]); pcx = pqx = null; }
+      else if (up === 'H') { cx = rel ? cx + g[0] : g[0]; out.push(['L', cx, cy]); pcx = pqx = null; }
+      else if (up === 'V') { cy = rel ? cy + g[0] : g[0]; out.push(['L', cx, cy]); pcx = pqx = null; }
+      else if (up === 'C') {
+        const c1x = ax(g[0]), c1y = ay(g[1]), c2x = ax(g[2]), c2y = ay(g[3]);
+        cx = ax(g[4]); cy = ay(g[5]);
+        out.push(['C', c1x, c1y, c2x, c2y, cx, cy]); pcx = c2x; pcy = c2y; pqx = null;
+      } else if (up === 'S') {
+        const c1x = pcx == null ? cx : 2 * cx - pcx, c1y = pcy == null ? cy : 2 * cy - pcy;
+        const c2x = ax(g[0]), c2y = ay(g[1]);
+        cx = ax(g[2]); cy = ay(g[3]);
+        out.push(['C', c1x, c1y, c2x, c2y, cx, cy]); pcx = c2x; pcy = c2y; pqx = null;
+      } else if (up === 'Q') {
+        const qx = ax(g[0]), qy = ay(g[1]);
+        cx = ax(g[2]); cy = ay(g[3]);
+        out.push(['Q', qx, qy, cx, cy]); pqx = qx; pqy = qy; pcx = null;
+      } else if (up === 'T') {
+        const qx = pqx == null ? cx : 2 * cx - pqx, qy = pqy == null ? cy : 2 * cy - pqy;
+        cx = ax(g[0]); cy = ay(g[1]);
+        out.push(['Q', qx, qy, cx, cy]); pqx = qx; pqy = qy; pcx = null;
+      } else if (up === 'A') {
+        const ex = rel ? cx + g[5] : g[5], ey = rel ? cy + g[6] : g[6];
+        arcToCubics(cx, cy, g[0], g[1], g[2], g[3], g[4], ex, ey).forEach(c => out.push(c));
+        cx = ex; cy = ey; pcx = pqx = null;
+      }
+    }
+  }
+  return out;
+};
+
+const mapCmds = (cmds, m) => cmds.map(c => {
+  if (c[0] === 'Z') return c;
+  const o = [c[0]];
+  for (let i = 1; i < c.length; i += 2) {
+    o.push(m[0] * c[i] + m[2] * c[i + 1] + m[4], m[1] * c[i] + m[3] * c[i + 1] + m[5]);
+  }
+  return o;
+});
+const cmdsToD = (cmds) => cmds.map(c => c[0] + c.slice(1).map(v => +v.toFixed(3)).join(' ')).join('');
+// Shoelace over the endpoints. SVG fills an open path, and a stroked line that
+// never declares a fill inherits black - which paints nothing, because the
+// shape has no interior. Catching that here keeps those ghosts out of the
+// export instead of shipping a filled path for every drawn line.
+const cmdsArea = (cmds) => {
+  let a = 0, sx = 0, sy = 0, px = 0, py = 0, open = false;
+  // Every subpath contributes its closing edge, whether or not a Z is written:
+  // without it an open two-point line measures as having area.
+  const close = () => { if (open) { a += px * sy - sx * py; open = false; } };
+  cmds.forEach(c => {
+    if (c[0] === 'Z') { close(); px = sx; py = sy; return; }
+    const x = c[c.length - 2], y = c[c.length - 1];
+    if (c[0] === 'M') { close(); sx = x; sy = y; open = true; }
+    else a += px * y - x * py;
+    px = x; py = y;
+  });
+  close();
+  return Math.abs(a) / 2;
+};
+
+// Shapes all become path data; the model downstream only knows paths.
+const shapeD = (el) => {
+  const g = (n, d) => { const v = el.getAttribute(n); return v == null || v === '' ? d : parseFloat(v) || 0; };
+  const t = el.tagName;
+  if (t === 'path') return el.getAttribute('d') || '';
+  if (t === 'line') return `M${g('x1', 0)} ${g('y1', 0)}L${g('x2', 0)} ${g('y2', 0)}`;
+  if (t === 'polyline' || t === 'polygon') {
+    const p = (el.getAttribute('points') || '').match(/[+-]?(?:\d*\.\d+|\d+\.?)(?:[eE][+-]?\d+)?/g) || [];
+    if (p.length < 4) return '';
+    let d = `M${p[0]} ${p[1]}`;
+    for (let i = 2; i + 1 < p.length; i += 2) d += `L${p[i]} ${p[i + 1]}`;
+    return d + (t === 'polygon' ? 'Z' : '');
+  }
+  if (t === 'circle') {
+    const r = g('r', 0); if (!r) return '';
+    const cx = g('cx', 0), cy = g('cy', 0);
+    return `M${cx - r} ${cy}A${r} ${r} 0 1 0 ${cx + r} ${cy}A${r} ${r} 0 1 0 ${cx - r} ${cy}Z`;
+  }
+  if (t === 'ellipse') {
+    const rx = g('rx', 0), ry = g('ry', 0); if (!rx || !ry) return '';
+    const cx = g('cx', 0), cy = g('cy', 0);
+    return `M${cx - rx} ${cy}A${rx} ${ry} 0 1 0 ${cx + rx} ${cy}A${rx} ${ry} 0 1 0 ${cx - rx} ${cy}Z`;
+  }
+  if (t === 'rect') {
+    const w = g('width', 0), h = g('height', 0); if (!w || !h) return '';
+    const x = g('x', 0), y = g('y', 0);
+    let rx = g('rx', null), ry = g('ry', null);
+    if (rx == null && ry == null) return `M${x} ${y}H${x + w}V${y + h}H${x}Z`;
+    rx = Math.min(rx == null ? ry : rx, w / 2); ry = Math.min(ry == null ? rx : ry, h / 2);
+    return `M${x + rx} ${y}H${x + w - rx}A${rx} ${ry} 0 0 1 ${x + w} ${y + ry}`
+      + `V${y + h - ry}A${rx} ${ry} 0 0 1 ${x + w - rx} ${y + h}`
+      + `H${x + rx}A${rx} ${ry} 0 0 1 ${x} ${y + h - ry}`
+      + `V${y + ry}A${rx} ${ry} 0 0 1 ${x + rx} ${y}Z`;
+  }
+  return '';
+};
+
+const SVG_SKIP = { defs: 1, script: 1, style: 1, metadata: 1, title: 1, desc: 1, clipPath: 1, mask: 1, pattern: 1, marker: 1, filter: 1, symbol: 1, image: 1, foreignObject: 1, use: 1, text: 1, textPath: 1, tspan: 1, linearGradient: 1, radialGradient: 1 };
+const styleVal = (el, prop) => {
+  const s = el.getAttribute('style');
+  if (!s) return null;
+  const m = new RegExp('(?:^|;)\\s*' + prop + '\\s*:\\s*([^;]+)').exec(s);
+  return m ? m[1].trim() : null;
+};
+const paintOf = (el, prop, inherited) => {
+  const v = styleVal(el, prop) || el.getAttribute(prop);
+  return v == null || v === '' || v === 'inherit' ? inherited : v.trim();
+};
+
+// Relative luminance, or null when the paint is not a literal colour
+// (currentColor, a gradient url) and so has to be taken as ink.
+const lumOf = (c) => {
+  if (!c) return null;
+  const s = c.toLowerCase().trim();
+  if (s === 'none' || s === 'transparent') return -1;
+  let m = /^#([0-9a-f]{3,8})$/.exec(s);
+  if (m) {
+    let h = m[1];
+    if (h.length === 3 || h.length === 4) h = h.slice(0, 3).split('').map(x => x + x).join('');
+    if (h.length < 6) return null;
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+  m = /^rgba?\(([^)]+)\)/.exec(s);
+  if (m) {
+    const a = m[1].split(',').map(v => parseFloat(v));
+    if (a.length >= 3) return (0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]) / 255;
+  }
+  if (s === 'white') return 1;
+  return null;
+};
+// A white fill under a dark outline is a knockout, not ink - keeping it would
+// turn the drawing into a solid blob. Paper is white, so dropping it loses
+// nothing. Unless the whole drawing is white, which the caller retries for.
+const inked = (paint, keepLight) => {
+  if (!paint || paint === 'none') return false;
+  if (keepLight) return true;
+  const l = lumOf(paint);
+  return l == null || (l >= 0 && l <= 0.86);
+};
+
+const NOTHING = 'has nothing drawable in it';
+const MAX_CMDS = 24000;
+// Walk the tree, collapsing groups by composing their transforms and rewriting
+// every shape as absolute path data in one coordinate space.
+const svgToParts = (text, keepLight) => {
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  if (doc.getElementsByTagName('parsererror').length) return { err: 'could not be parsed as SVG' };
+  const root = doc.documentElement;
+  if (!root || root.tagName !== 'svg') return { err: 'is not an SVG' };
+  const parts = [];
+  let total = 0, over = false;
+  const walk = (el, m, fill, stroke) => {
+    if (over) return;
+    for (const kid of el.children) {
+      const tag = kid.tagName;
+      if (SVG_SKIP[tag]) continue;
+      const km = mMul(m, parseTransform(kid.getAttribute('transform')));
+      const kf = paintOf(kid, 'fill', fill), ks = paintOf(kid, 'stroke', stroke);
+      if (tag === 'g' || tag === 'svg' || tag === 'a') { walk(kid, km, kf, ks); continue; }
+      const d = shapeD(kid);
+      if (!d) continue;
+      const filled = inked(kf, keepLight), stroked = inked(ks, keepLight);
+      if (!filled && !stroked) continue;
+      const cmds = mapCmds(pathAbs(d), km);
+      if (!cmds.length) continue;
+      total += cmds.length;
+      if (total > MAX_CMDS) { over = true; return; }
+      // A shape that is both filled and stroked lands as two parts, so the
+      // outline still takes the app's line weight.
+      if (filled && cmdsArea(cmds) > 0.01) parts.push({ cmds, fill: true });
+      if (stroked) parts.push({ cmds, fill: false });
+    }
+  };
+  walk(root, M_ID, 'black', null);
+  if (over) return { err: 'is too detailed to use as an icon' };
+  if (!parts.length) return { err: NOTHING };
+  return { parts };
+};
+
+// Fit to the icon coordinate space: centred on the origin, longest side TARGET.
+const ICON_FIT = 84;
+const fitParts = (parts) => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const probe = document.createElementNS(NS, 'svg');
+  probe.setAttribute('width', '0'); probe.setAttribute('height', '0');
+  probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;overflow:hidden;';
+  document.body.appendChild(probe);
+  parts.forEach(p => {
+    const el = document.createElementNS(NS, 'path');
+    el.setAttribute('d', cmdsToD(p.cmds));
+    probe.appendChild(el);
+  });
+  let bb;
+  try { bb = probe.getBBox(); } finally { probe.remove(); }
+  if (!bb || !(bb.width > 0) && !(bb.height > 0)) return null;
+  const k = ICON_FIT / Math.max(bb.width, bb.height, 1e-6);
+  const m = [k, 0, 0, k, -(bb.x + bb.width / 2) * k, -(bb.y + bb.height / 2) * k];
+  return {
+    w: Math.max(6, Math.round(bb.width * k)) + 6,
+    h: Math.max(6, Math.round(bb.height * k)) + 6,
+    parts: parts.map(p => ({ d: cmdsToD(mapCmds(p.cmds, m)), fill: p.fill }))
+  };
+};
+
+const svgToIcon = (text) => {
+  let r = svgToParts(text, false);
+  // An all-white drawing reads as empty under the knockout rule; take it as
+  // ink rather than telling the user their file is blank.
+  if (r.err === NOTHING) r = svgToParts(text, true);
+  if (r.err) return r;
+  const fit = fitParts(r.parts);
+  return fit ? fit : { err: 'has no visible size' };
+};
+
 // ── Picture icons ─────────────────────────────────────────────────────────
 // Stand-ins that turn up across every subject - a person for scale, a car for
 // motion, the earth for orbits - so they live beside the tools rather than in
@@ -1807,6 +2171,43 @@ const ICON_LIB = [
 ];
 ICON_LIB.forEach(c => { IDX['@icon/' + c.id] = c; });
 
+// ── User icons on this device ─────────────────────────────────────────────
+const ICONS_KEY = 'diagram-maker.icons.v1';
+// Shared by the stored icons and by library import, so a file from another
+// machine gets the same validation as anything already here.
+const normalizeIcons = (v) => !Array.isArray(v) ? [] : v
+  .filter(e => e && typeof e.id === 'string' && typeof e.name === 'string'
+    && Number(e.w) > 0 && Number(e.h) > 0 && Array.isArray(e.parts) && e.parts.length
+    && e.parts.every(p => p && typeof p.d === 'string' && p.d.length < 200000))
+  .slice(0, 200)
+  .map(e => ({
+    id: e.id, name: e.name.slice(0, 60), w: Number(e.w), h: Number(e.h),
+    parts: e.parts.map(p => ({ d: p.d, fill: !!p.fill }))
+  }));
+const loadIcons = () => {
+  try {
+    const raw = localStorage.getItem(ICONS_KEY);
+    return raw ? normalizeIcons(JSON.parse(raw)) : [];
+  } catch (err) {
+    return [];
+  }
+};
+const userKey = (id) => '@icon/u/' + id;
+// The stored geometry becomes a component the same shape as any built-in one,
+// so placing, sizing, rotating and export need to know nothing about it. INK
+// is read at draw time, which is what keeps a user icon themed like the rest.
+const registerIcon = (e) => {
+  IDX[userKey(e.id)] = {
+    id: 'u/' + e.id, name: e.name, w: e.w, h: e.h, user: true,
+    d: (sw) => e.parts.map(p => p.fill
+      ? `<path d="${p.d}" fill="${INK}" stroke="none"/>`
+      : `<path d="${p.d}" fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>`
+    ).join('')
+  };
+};
+const USER_ICONS = loadIcons();
+USER_ICONS.forEach(registerIcon);
+
 class Component extends DCLogic {
   state = withPrefs({
     subject: 'physics', unit: 'electricity', pick: null,
@@ -1820,10 +2221,14 @@ class Component extends DCLogic {
     panelTab: 'components', library: loadLibrary(), libName: '', libError: '',
     // Transient feedback on the Copy SVG button.
     copyState: '',
-    // Whether the icon shelf under the tool row is open.
+    // Whether the icon shelf under the tool row is open, the uploaded icons on
+    // this device, the one awaiting delete confirmation, and the status line.
     iconsOpen: false,
+    userIcons: USER_ICONS,
+    iconDel: null,
+    iconMsg: '',
     // Name awaiting delete confirmation, and the import/export status line.
-    libConfirm: null, libIoMsg: '',
+    libConfirm: null, libIoMsg: '', libLoadMsg: '',
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
     // factor in px per canvas unit; `vp` is the live pixel size of the canvas
     // element, measured so the viewBox aspect always matches it exactly.
@@ -2385,11 +2790,21 @@ class Component extends DCLogic {
   loadFromLibrary(name) {
     const e = this.libList().find(x => x.name === name);
     if (!e) return;
-    // Drop anything whose component no longer exists, so a diagram saved by an
-    // older build cannot break the render.
-    const items = e.items.filter(i => i && (i.text || IDX[i.key]));
+    // An element whose component has gone - an uploaded icon removed since, or
+    // a diagram from an older build - is kept and drawn as a placeholder rather
+    // than dropped. Silently deleting part of a saved diagram is the worse
+    // failure, and the element comes back intact if the icon is imported again.
+    const items = e.items.filter(i => i && (i.text || i.key));
+    const gone = items.filter(i => !i.text && !IDX[i.key]).length;
     this.commit(null);
-    this.setState({ items, nextId: e.nextId, sel: null, pick: null, draw: null, cursor: null, snapAt: null });
+    this.setState({
+      items, nextId: e.nextId, sel: null, pick: null, draw: null, cursor: null, snapAt: null,
+      libLoadMsg: gone
+        ? (gone === 1
+            ? 'One element could not be drawn — that icon is not on this device. It is kept in place and comes back if the icon is imported.'
+            : `${gone} elements could not be drawn — those icons are not on this device. They are kept in place and come back if the icons are imported.`)
+        : ''
+    });
   }
 
   deleteFromLibrary(name) {
@@ -2399,17 +2814,73 @@ class Component extends DCLogic {
   }
 
   // ── Moving a library between machines ───────────────────────────────────
+  // ── Uploaded icons ────────────────────────────────────────────────────
+  addIconFiles(files) {
+    const MAX = 512 * 1024;
+    const jobs = files.slice(0, 20).map(f => {
+      if (f.size > MAX) return Promise.resolve({ name: f.name, err: 'is larger than 512 KB' });
+      return f.text().then(t => {
+        // Every reason is a verb phrase, so it reads as "<file> <reason>."
+        const r = svgToIcon(t);
+        return r.err ? { name: f.name, err: r.err } : { name: f.name, icon: r };
+      }).catch(() => ({ name: f.name, err: 'could not be read' }));
+    });
+    Promise.all(jobs).then(res => {
+      const added = [], failed = res.filter(r => r.err);
+      const names = this.state.userIcons.map(e => e.name);
+      res.filter(r => r.icon).forEach((r, k) => {
+        let name = r.name.replace(/\.svg$/i, '').slice(0, 60) || 'Icon', n = 2;
+        while (names.some(x => x === name)) { name = r.name.replace(/\.svg$/i, '') + ' (' + n + ')'; n++; }
+        names.push(name);
+        // Time alone is not unique enough when several files land together.
+        const e = { id: Date.now().toString(36) + k.toString(36), name, w: r.icon.w, h: r.icon.h, parts: r.icon.parts };
+        registerIcon(e);
+        added.push(e);
+      });
+      if (!added.length && !failed.length) return;
+      const next = this.state.userIcons.concat(added);
+      let msg = added.length ? `Added ${added.length} icon${added.length === 1 ? '' : 's'}.` : '';
+      if (failed.length) msg += (msg ? ' ' : '') + failed.map(f => `${f.name} ${f.err}.`).join(' ');
+      if (!added.length) { this.setState({ iconMsg: msg }); return; }
+      try {
+        localStorage.setItem(ICONS_KEY, JSON.stringify(next));
+        this.setState({ userIcons: next, iconMsg: msg });
+      } catch (err) {
+        // Registered but unsaved: usable now, gone on reload. Say so.
+        this.setState({ userIcons: next, iconMsg: 'Browser storage is full — these icons will be gone after a reload.' });
+      }
+    });
+  }
+
+  removeIcon(id) {
+    const e = this.state.userIcons.find(x => x.id === id);
+    const next = this.state.userIcons.filter(x => x.id !== id);
+    // The key stays registered so any element already drawn with it keeps
+    // rendering; only the shelf entry goes.
+    try { localStorage.setItem(ICONS_KEY, JSON.stringify(next)); } catch (err) { /* nothing to roll back */ }
+    this.setState(s2 => ({
+      userIcons: next, iconDel: null,
+      pick: s2.pick === userKey(id) ? null : s2.pick,
+      iconMsg: e ? `Removed ${e.name}.` : ''
+    }));
+  }
+
   exportLibrary() {
     const n = libCount(this.state.library);
     if (!n) { this.setState({ libIoMsg: 'There is nothing saved to export yet.' }); return; }
-    const payload = { app: 'diagram-maker', kind: 'library', version: 1, library: this.state.library };
+    // Uploaded icons ride along: a saved diagram that uses one is unopenable
+    // on the other machine without it.
+    const payload = { app: 'diagram-maker', kind: 'library', version: 1,
+      library: this.state.library, icons: this.state.userIcons };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'diagram-maker-library.json';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    this.setState({ libIoMsg: `Exported ${n} diagram${n === 1 ? '' : 's'}.` });
+    const ni = this.state.userIcons.length;
+    this.setState({ libIoMsg: `Exported ${n} diagram${n === 1 ? '' : 's'}`
+      + (ni ? ` and ${ni} uploaded icon${ni === 1 ? '' : 's'}.` : '.') });
   }
 
   importLibrary(text) {
@@ -2419,7 +2890,8 @@ class Component extends DCLogic {
     }
     // Accept both the wrapped export and a bare library object.
     const incoming = normalizeLibrary(raw && raw.library ? raw.library : raw);
-    if (!libCount(incoming)) {
+    const incomingIcons = normalizeIcons(raw && raw.icons);
+    if (!libCount(incoming) && !incomingIcons.length) {
       this.setState({ libIoMsg: 'No saved diagrams found in that file.' }); return;
     }
     // Merge rather than replace, and rename on a clash: importing must never
@@ -2437,12 +2909,20 @@ class Component extends DCLogic {
       });
       merged[k] = have;
     });
+    // Icons are keyed by id, so an icon already here is the same icon; only
+    // genuinely new ones are taken on.
+    const have = this.state.userIcons;
+    const fresh = incomingIcons.filter(e => !have.some(x => x.id === e.id));
+    fresh.forEach(registerIcon);
+    const icons = have.concat(fresh);
     try {
       localStorage.setItem(LIB_KEY, JSON.stringify(merged));
+      if (fresh.length) localStorage.setItem(ICONS_KEY, JSON.stringify(icons));
       this.setState({
-        library: merged,
+        library: merged, userIcons: icons,
         libIoMsg: `Imported ${added} diagram${added === 1 ? '' : 's'}`
-          + (renamed ? `, ${renamed} renamed to avoid a clash.` : '.')
+          + (renamed ? `, ${renamed} renamed to avoid a clash` : '')
+          + (fresh.length ? ` and ${fresh.length} icon${fresh.length === 1 ? '' : 's'}.` : '.')
       });
     } catch (err) {
       this.setState({ libIoMsg: 'Could not save — browser storage is full.' });
@@ -2708,16 +3188,37 @@ class Component extends DCLogic {
       iconsOpen: st.iconsOpen,
       toggleIcons: () => this.setState(s2 => ({ iconsOpen: !s2.iconsOpen })),
       iconsBtnStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.iconsOpen ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.iconsOpen ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.iconsOpen ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
-      iconTiles: !st.iconsOpen ? [] : ICON_LIB.map(c => {
-        const key = '@icon/' + c.id, on = st.pick === key;
-        const m = Math.max(c.w, c.h) / 2 + 6;
-        return {
-          name: c.name, viewBox: `${-m} ${-m} ${m * 2} ${m * 2}`,
-          nodes: nodesFor(withInk(dark ? INK_ICON : INK_ICON_LIGHT, () => c.d(Math.max(2.2, m / 15)))),
-          style: `padding: 7px 4px 6px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; font-family: inherit;`,
-          onPick: () => this.setState({ pick: on ? null : key, sel: null, draw: null, cursor: null })
-        };
-      }),
+      // Uploaded icons sit in the same shelf as the built-ins and behave the
+      // same way; only the remove affordance tells them apart.
+      iconTiles: !st.iconsOpen ? [] : ICON_LIB.map(c => ({ c, key: '@icon/' + c.id, mine: false }))
+        .concat(st.userIcons.map(e => ({ c: IDX[userKey(e.id)], key: userKey(e.id), mine: true, uid: e.id })))
+        .filter(t => t.c)
+        .map(t => {
+          const c = t.c, on = st.pick === t.key;
+          const m = Math.max(c.w, c.h) / 2 + 6;
+          return {
+            name: c.name, viewBox: `${-m} ${-m} ${m * 2} ${m * 2}`,
+            nodes: nodesFor(withInk(dark ? INK_ICON : INK_ICON_LIGHT, () => c.d(Math.max(2.2, m / 15)))),
+            style: `display: block; width: 100%; padding: 7px 4px 6px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; font-family: inherit;`,
+            onPick: () => this.setState({ pick: on ? null : t.key, sel: null, draw: null, cursor: null, iconDel: null }),
+            mine: t.mine, removeTitle: 'Remove ' + c.name,
+            asking: t.mine && st.iconDel === t.uid,
+            idle: !(t.mine && st.iconDel === t.uid),
+            onAskRemove: () => this.setState({ iconDel: t.uid, iconMsg: '' }),
+            onCancel: () => this.setState({ iconDel: null }),
+            onRemove: () => this.removeIcon(t.uid)
+          };
+        }),
+      iconMsg: st.iconMsg,
+      iconFileRef: (el) => { this._iconEl = el; },
+      // The styled button stands in for the file input, which stays hidden.
+      pickIconFile: () => { if (this._iconEl) this._iconEl.click(); },
+      onIconFile: (e) => {
+        const files = Array.from(e.target.files || []);
+        // Cleared so picking the same file twice still fires a change.
+        e.target.value = '';
+        if (files.length) this.addIconFiles(files);
+      },
       selectPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${!st.pick && !st.draw ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${!st.pick && !st.draw ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${!st.pick && !st.draw ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
       dimPanelLabel: st.pick === DIM_KEY ? 'Click 2 points' : 'Dimension',
       dimPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === DIM_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
@@ -2870,6 +3371,7 @@ class Component extends DCLogic {
       saveLibLabel: st.items.length ? 'Save diagram' : 'Canvas is empty',
       saveLibStyle: `height: 30px; font-family: inherit; font-size: 12px; font-weight: 500; color: ${st.items.length ? 'var(--on-accent)' : 'var(--fg-3)'}; background: ${st.items.length ? 'var(--accent)' : 'var(--field)'}; border: 1px solid ${st.items.length ? 'var(--accent)' : 'var(--field-line)'}; border-radius: 5px; cursor: ${st.items.length ? 'pointer' : 'default'};`,
       libEmpty: !this.libList().length,
+      libLoadMsg: st.libLoadMsg,
       // Newest first, so the thing you just saved is at the top.
       libItems: this.libList().slice().sort((a, b) => b.at - a.at).map(e => ({
         name: e.name,

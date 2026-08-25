@@ -76,6 +76,11 @@ Then visit <http://localhost:8765/>.
 - Icons shelf beside those tools — person, car, earth, satellite, the
   right-hand rule fist, thumbs up, eye, tree, ship, sun, moon, aeroplane and
   house, placed and sized like any other component
+- **Upload SVG…** in that shelf adds your own artwork. The file is flattened
+  into the same geometry everything else uses — groups collapsed, transforms
+  baked in, shapes rewritten as paths — so an uploaded icon snaps, scales,
+  rotates, takes the line-weight slider and exports exactly like a built-in.
+  Uploads are kept on the device and travel with **Export Library**
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search
 - Export the artwork as SVG, or copy it to the clipboard to paste straight into
@@ -83,6 +88,14 @@ Then visit <http://localhost:8765/>.
 
 ## Notes
 
+- Uploaded SVGs are redrawn in the diagram ink rather than their own colours,
+  which is what keeps them themed, weight-adjustable and consistent in a
+  monochrome print export. Fills are preserved as fills; a white fill under a
+  dark outline is treated as a knockout and dropped, unless the whole drawing
+  is light, in which case it is taken as ink.
+- Nothing from an uploaded file reaches the live document. It is parsed with
+  `DOMParser`, which runs no scripts, and only geometry is carried across —
+  the markup that renders is rebuilt from that geometry.
 - Exported text is centred with an explicit `dy` rather than
   `dominant-baseline`, which Illustrator ignores.
 - The exported SVG pulls DM Sans via a Google Fonts `@import`, which Illustrator and
