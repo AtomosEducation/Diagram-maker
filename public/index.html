@@ -303,6 +303,9 @@
             </div>
             <div style="position: absolute; left: 0; top: 0; width: 22px; height: 22px; background: var(--panel); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);"></div>
           </sc-if>
+          <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
+            <input ref="{{ editRef }}" value="{{ editValue }}" onChange="{{ setEditValue }}" style="{{ editStyle }}" />
+          </sc-if>
           <svg ref="{{ svgRef }}" viewBox="{{ viewBox }}" preserveAspectRatio="none" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onDoubleClick="{{ onCanvasDouble }}" style="display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none;">
             <defs>
               <pattern id="g-lines" width="{{ gridSize }}" height="{{ gridSize }}" patternUnits="userSpaceOnUse">
@@ -349,7 +352,7 @@
               </g>
             </sc-if>
             <sc-for list="{{ shapes }}" as="it" hint-placeholder-count="0">
-              <g transform="{{ it.transform }}" onPointerDown="{{ it.onDown }}" style="cursor: move;">
+              <g transform="{{ it.transform }}" onPointerDown="{{ it.onDown }}" onDoubleClick="{{ it.onEdit }}" style="cursor: move;">
                 <rect x="{{ it.bx }}" y="{{ it.by }}" width="{{ it.bw }}" height="{{ it.bh }}" fill="transparent"></rect>
                 <sc-for list="{{ it.nodes }}" as="n" hint-placeholder-count="0">
                   <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
@@ -468,6 +471,14 @@
                       <button onClick="{{ dc.onPick }}" title="{{ dc.title }}" style="{{ dc.style }}">{{ dc.name }}</button>
                     </sc-for>
                   </div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ showFill }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 11.5px; color: var(--fg-3); flex: 0 0 auto;">Point</span>
+                  <sc-for list="{{ fillBtns }}" as="fb" hint-placeholder-count="2">
+                    <button onClick="{{ fb.onPick }}" style="{{ fb.style }}">{{ fb.name }}</button>
+                  </sc-for>
                 </div>
               </sc-if>
               <sc-if value="{{ showLabelPos }}" hint-placeholder-val="{{ true }}">
@@ -1004,6 +1015,7 @@ const defaultPts = (key, x, y) => {
 const DRAW_HINTS = {
   poly: 'Pick Wire, then click the canvas for each corner. Double-click or press Enter to finish, Esc to cancel.',
   seg: 'Click the start, then the end. Direction and length follow the two clicks.',
+  polyline: 'Click each corner. Double-click or press Enter to finish, Esc to cancel.',
   polygon: 'Click each corner. Double-click or press Enter to close the shape, Esc to cancel.',
   arc: 'Click the two end points, then set Curvature to bow the arc either way.',
   circle: 'Click the centre, then click again to set the radius.',
@@ -1447,6 +1459,8 @@ const LIB = [
         d: (s) => P('M-58 0 H58', s) + DOT(-58, 0, 3.4) + DOT(58, 0, 3.4) },
       { id: 'dray', name: 'Ray (draw)', wire: true, kind: 'seg', defArrow: 'end', w: 130, h: 24,
         d: (s) => ARROW(-58, 0, 58, 0, s, 9) + DOT(-58, 0, 3.4) },
+      { id: 'dpolyline', name: 'Polyline (draw)', wire: true, kind: 'polyline', w: 130, h: 100,
+        d: (s) => P('M-58 34 L-18 -30 L20 20 L58 -34', s) + DOT(-58, 34, 3.2) + DOT(58, -34, 3.2) },
       { id: 'dpolygon', name: 'Polygon (draw)', wire: true, kind: 'polygon', w: 120, h: 110,
         d: (s) => P('M0 -50 L54 -12 L34 50 H-34 L-54 -12 Z', s) },
       { id: 'darc', name: 'Arc (draw)', wire: true, kind: 'arc', w: 120, h: 80,
@@ -1455,7 +1469,8 @@ const LIB = [
         d: (s) => C(0, 0, 52, s) + DOT(0, 0, 3.4) },
       // The letter used to be baked into the glyph, so it could never be
       // changed. It is a default label now, and Size scales the dot itself.
-      { id: 'point', name: 'Point', w: 30, h: 30, defLabel: 'A', lgap: 15, d: (s) => DOT(0, 0, 4) },
+      { id: 'point', name: 'Point', w: 30, h: 30, defLabel: 'A', lgap: 15, hollowable: true,
+        d: (s, it) => (it && it.hollow) ? C(0, 0, 4.2, s) : DOT(0, 0, 4) },
       { id: 'segment', name: 'Segment', w: 130, h: 24, d: (s) => P('M-58 0 H58', s) + DOT(-58, 0, 3.4) + DOT(58, 0, 3.4) },
       { id: 'rayline', name: 'Ray', w: 130, h: 24, d: (s) => ARROW(-58, 0, 58, 0, s, 9) + DOT(-58, 0, 3.4) },
       { id: 'triangle', name: 'Triangle', w: 130, h: 110, d: (s) => P('M0 -50 L58 50 H-58 Z', s) },
@@ -1629,6 +1644,8 @@ class Component extends DCLogic {
     // `draw` holds the wire being laid down click-by-click; `cursor` is the
     // live pointer position used for the rubber-band segment.
     draw: null, cursor: null, cursorFree: false, altDown: false,
+    // Id of the text item being typed into directly on the canvas.
+    editId: null,
     draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow' }
   });
 
@@ -1656,6 +1673,7 @@ class Component extends DCLogic {
       const typing = !!(active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable));
       if (typing) {
         if (e.key === 'Escape') active.blur();
+        if (e.key === 'Enter' || e.key === 'Escape') this.endEdit();
         return;
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && !typing) {
@@ -1910,7 +1928,7 @@ class Component extends DCLogic {
       this.commit(null);
       this.setState(s => ({
         items: s.items.concat({ id: s.nextId, text: true, x, y, label: d.label || 'Text', fs: d.fs, sx: d.sx, sy: d.sy, rot: d.rot, flip: false, deco: d.deco }),
-        nextId: s.nextId + 1, sel: s.nextId
+        nextId: s.nextId + 1, sel: s.nextId, editId: s.nextId
       }));
       return;
     }
@@ -2041,6 +2059,26 @@ class Component extends DCLogic {
   }
 
   attachLabelInput = (el) => { this._labelEl = el; };
+
+  // The on-canvas editor. Focus and select-all happen once, when the element
+  // first appears, so re-renders while typing do not fight the caret.
+  attachEditInput = (el) => {
+    if (this._editEl === el) return;
+    this._editEl = el;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      if (this._editEl !== el) return;
+      el.focus();
+      try { el.select(); } catch (err) { /* not a text input */ }
+    });
+  };
+
+  editItem(id) {
+    const it = this.state.items.find(i => i.id === id);
+    if (!it || !it.text) return;
+    this.setState({ editId: id, sel: id, pick: null, draw: null, cursor: null });
+  }
+  endEdit() { if (this.state.editId != null) this.setState({ editId: null }); }
 
   // Characters go in at the caret, replacing any selection, and the caret is
   // restored afterwards so a run of picks reads left to right instead of
@@ -2332,6 +2370,7 @@ class Component extends DCLogic {
     const SUBCOLOR = dark
       ? { physics: '#6ccb95', chemistry: '#e5a663', mathematics: '#7ab6e8', biology: '#b79ae0' }
       : { physics: '#2b7d55', chemistry: '#a06a1c', mathematics: '#2f6ea8', biology: '#6d4fa8' };
+    const editItem = st.editId == null ? null : st.items.find(i => i.id === st.editId && i.text) || null;
     const q = st.query.trim().toLowerCase();
     // Snapping actually in force right now, toggle minus the Alt override.
     const snapLive = st.snap && !st.altDown;
@@ -2587,7 +2626,8 @@ class Component extends DCLogic {
             : c.d(i.sw, i) + compLabel(i, c, showLabels))), i.sx, i.sy),
           bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
           selected: i.id === st.sel,
-          onDown: (e) => this.drag(e, i.id, 'move')
+          onDown: (e) => this.drag(e, i.id, 'move'),
+          onEdit: () => { if (i.text) this.editItem(i.id); }
         };
       }),
 
@@ -2673,7 +2713,7 @@ class Component extends DCLogic {
       // a circle has no arrow, only a polyline can be right-angled, and only an
       // arc has curvature.
       drawKind: drawKind,
-      showArrow: drawKind === 'poly' || drawKind === 'seg',
+      showArrow: drawKind === 'poly' || drawKind === 'seg' || drawKind === 'polyline',
       showRouting: drawKind === 'poly',
       showBulge: drawKind === 'arc',
       // No point offering head controls when there is no head.
@@ -2688,7 +2728,7 @@ class Component extends DCLogic {
       // ends are actually arrows.
       showArrowHead: drawKind === 'dim'
         ? (src.dimEnd || 'arrow') === 'arrow'
-        : ((drawKind === 'poly' || drawKind === 'seg') && (src.arrow || 'none') !== 'none'),
+        : ((drawKind === 'poly' || drawKind === 'seg' || drawKind === 'polyline') && (src.arrow || 'none') !== 'none'),
       pAhs: AH_SIZE(src), pAhsTxt: AH_SIZE(src) + 'px',
       setAhs: (e) => this.patch({ ahs: parseFloat(e.target.value) }),
       ahStyleBtns: [
@@ -2796,10 +2836,39 @@ class Component extends DCLogic {
         return out;
       })(),
 
+      // ── Editing text on the canvas ────────────────────────────────────
+      // Positioned over the item in the same padded box as the svg, so the
+      // ruler gutter shifts both together, and scaled by the zoom so the field
+      // matches the type it is replacing.
+      editing: !!editItem,
+      editRef: this.attachEditInput,
+      editValue: editItem ? (editItem.label == null ? '' : String(editItem.label)) : '',
+      setEditValue: (e) => {
+        const v = e.target.value, id = st.editId;
+        this.commit('edit:' + id);
+        this.setState(s2 => ({ items: s2.items.map(i => i.id === id ? { ...i, label: v } : i) }));
+      },
+      editStyle: (() => {
+        if (!editItem) return 'display: none;';
+        const z = st.view.z, pad = st.rulers ? 22 : 0;
+        const left = pad + (editItem.x - vb.x) * z, top = pad + (editItem.y - vb.y) * z;
+        const fs = Math.max(9, editItem.fs * Math.sqrt((editItem.sx || 1) * (editItem.sy || 1)) * z);
+        const w = Math.max(70, textW(editItem.label || 'Text', fs, FONTS[this.fontKey]) + fs * 2);
+        return `position: absolute; left: ${left.toFixed(1)}px; top: ${top.toFixed(1)}px; width: ${w.toFixed(0)}px;`
+          + ` transform: translate(-50%, -50%); z-index: 5; text-align: center;`
+          + ` font-family: ${FONTS[this.fontKey]}; font-size: ${fs.toFixed(1)}px; color: #16201a;`
+          + ` background: #ffffff; border: 1.5px solid var(--accent); border-radius: 4px; outline: none; padding: 1px 4px;`;
+      })(),
+
       labelRef: this.attachLabelInput,
       // A wire's label rides its midpoint and a text item *is* its label, so
       // neither has an above/below to choose.
       showLabelPos: (!isWire && !isText) || drawKind === 'dim',
+      showFill: !!((sel ? IDX[sel.key] : pickComp) || {}).hollowable,
+      fillBtns: [{ id: false, name: 'Filled' }, { id: true, name: 'Hollow' }].map(o => ({
+        name: o.name, style: segStyle(!!src.hollow === o.id),
+        onPick: () => this.patch({ hollow: o.id })
+      })),
       // Vector notation belongs to a free-standing text item, whose label is
       // the whole element; a component's label is an annotation beside it.
       showDeco: isText,

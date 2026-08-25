@@ -49,7 +49,7 @@ Then visit <http://localhost:8765/>.
 - Wire tool: click each corner, double-click to finish; straight or right-angle routing
 - Congruence marks for Plane Geometry — one, two and three ticks, a cross, and
   single or double chevrons for parallel sides
-- Plane Geometry drawing tools — segment, ray, polygon, arc and circle, all drawn
+- Plane Geometry drawing tools — segment, ray, polyline, polygon, arc and circle, all drawn
   by clicking on the canvas, with solid/dashed/dotted line styles and an
   adjustable curvature on arcs
 - Thumbnail strip of everything on the canvas, so any element can be selected
@@ -58,6 +58,8 @@ Then visit <http://localhost:8765/>.
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
 - Label can sit above or below a component
+- Text typed straight onto the canvas — the editor opens where you place it, and
+  double-clicking any label reopens it
 - Free-standing text placed anywhere on the canvas, rotatable to any angle,
   with vector bar, arrow, hat or dots drawn over it
 - Dimension tool — click two points to measure between them, with arrow, dot
