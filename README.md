@@ -71,6 +71,9 @@ Then visit <http://localhost:8765/>.
   width, text size, label size and export margin, remembered between sessions
   along with the theme, grid style, typeface and snap toggles
 - Select, Text and Dimension tools in the Properties panel, on V, T and D
+- Icons shelf beside those tools — person, car, earth, satellite, right-hand
+  rule, eye, tree, ship, sun, moon, aeroplane and house, placed and sized like
+  any other component
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
 - Cross-subject component search
 - Export the artwork as SVG, or copy it to the clipboard to paste straight into

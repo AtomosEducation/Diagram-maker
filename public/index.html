@@ -438,7 +438,32 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M3 12h18M3 12l4-3M3 12l4 3M21 12l-4-3M21 12l-4 3"></path></svg>
             {{ dimPanelLabel }}
           </button>
+          <button onClick="{{ toggleIcons }}" title="Everyday picture icons for any subject" style="{{ iconsBtnStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><circle cx="8" cy="8" r="3.4"></circle><path d="M14 5h6v6h-6z"></path><path d="M5 14h6v6H5z"></path><path d="M17 14l3.2 6h-6.4z"></path></svg>
+            Icons
+          </button>
         </div>
+        <sc-if value="{{ iconsOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 0 12px 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+              <sc-for list="{{ iconTiles }}" as="ic" hint-placeholder-count="9">
+                <button onClick="{{ ic.onPick }}" title="{{ ic.name }}" style="{{ ic.style }}" style-hover="background: var(--ctl-hover);">
+                  <svg viewBox="{{ ic.viewBox }}" width="100%" height="40" style="display: block;">
+                    <sc-for list="{{ ic.nodes }}" as="n" hint-placeholder-count="0">
+                      <sc-if value="{{ n.isPath }}" hint-placeholder-val="{{ false }}">
+                        <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round" stroke-linejoin="round"></path>
+                      </sc-if>
+                      <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
+                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+                      </sc-if>
+                    </sc-for>
+                  </svg>
+                  <span style="display: block; font-size: 9.5px; line-height: 1.2; color: var(--fg-3); margin-top: 4px; text-align: center;">{{ ic.name }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
         <sc-if value="{{ hasThumbs }}" hint-placeholder-val="{{ false }}">
           <div style="padding: 0 12px 12px;">
             <div style="font-size: 11.5px; color: var(--fg-3); padding: 0 2px 7px;">On the canvas · {{ thumbCount }}</div>
@@ -1727,6 +1752,42 @@ LIB.forEach(s => s.units.forEach(u => u.comps.forEach(c => { IDX[s.id + '/' + u.
 const DIM_KEY = '@dim';
 IDX[DIM_KEY] = { id: 'dim', name: 'Dimension', wire: true, kind: 'dim', w: 120, h: 34 };
 
+// ── Picture icons ─────────────────────────────────────────────────────────
+// Stand-ins that turn up across every subject - a person for scale, a car for
+// motion, the earth for orbits - so they live beside the tools rather than in
+// any one unit's palette.
+const ICON_LIB = [
+  { id: 'person', name: 'Person', w: 48, h: 82, d: (s) => C(0, -30, 9, s)
+    + P('M0 -21 V4 M-14 -4 L0 -16 L14 -4 M0 4 L-11 31 M0 4 L11 31', s) },
+  { id: 'car', name: 'Car', w: 88, h: 48, d: (s) => P('M-38 9 V-1 Q-38 -5 -34 -5 L-23 -5 L-14 -16 Q-12 -18 -9 -18 H9 Q12 -18 14 -16 L23 -5 L34 -5 Q38 -5 38 -1 V9', s)
+    + P('M-2 -17 V-5 M-30 9 H-28 M28 9 H30', s) + C(-21, 9, 7, s) + C(21, 9, 7, s) },
+  { id: 'earth', name: 'Earth', w: 74, h: 74, d: (s) => C(0, 0, 32, s)
+    + ELL(0, 0, 13, 32, s) + P('M-32 0 H32 M-27 -17 H27 M-27 17 H27', s) },
+  { id: 'satellite', name: 'Satellite', w: 100, h: 70, d: (s) => P('M-11 -13 H11 V13 H-11 Z', s)
+    + P('M-11 -7 H-40 V7 H-11 M11 -7 H40 V7 H11 M-26 -7 V7 M26 -7 V7', s)
+    + P('M0 -13 V-24', s) + P('M-9 -24 A9 9 0 0 1 9 -24', s) },
+  { id: 'hand', name: 'Hand (right-hand rule)', w: 66, h: 84, d: (s) =>
+      P('M-6 -14 V-32 A7 7 0 0 1 8 -32 V-8', s)
+    + P('M-20 -4 Q-20 -13 -11 -13 H10 A11 11 0 0 1 21 -2 V10 A14 14 0 0 1 7 24 H-6 A14 14 0 0 1 -20 10 Z', s)
+    + P('M21 2 H9 M20 10 H9', s) },
+  { id: 'eye', name: 'Eye', w: 78, h: 48, d: (s) => P('M-34 0 Q0 -21 34 0 Q0 21 -34 0 Z', s)
+    + C(0, 0, 10, s) + DOT(0, 0, 4) },
+  { id: 'tree', name: 'Tree', w: 68, h: 88, d: (s) => P('M0 40 V-4', s)
+    + P('M-22 4 Q-32 -12 -18 -21 Q-16 -37 0 -37 Q16 -37 18 -21 Q32 -12 22 4 Z', s) },
+  { id: 'ship', name: 'Ship', w: 92, h: 76, d: (s) => P('M-38 8 L-29 24 H29 L38 8 Z', s)
+    + P('M0 8 V-32', s) + P('M3 -30 L26 4 H3 Z', s) + P('M-3 -24 L-22 4 H-3 Z', s) },
+  { id: 'sun', name: 'Sun', w: 76, h: 76, d: (s) => C(0, 0, 17, s)
+    + P([0, 45, 90, 135, 180, 225, 270, 315].map(a => {
+        const r = a * Math.PI / 180, c = Math.cos(r), n = Math.sin(r);
+        return `M${(24 * c).toFixed(1)} ${(24 * n).toFixed(1)} L${(34 * c).toFixed(1)} ${(34 * n).toFixed(1)}`;
+      }).join(' '), s) },
+  { id: 'moon', name: 'Moon', w: 64, h: 64, d: (s) => P('M6 -28 A28 28 0 1 0 6 28 A34 34 0 0 1 6 -28 Z', s) },
+  { id: 'plane', name: 'Aeroplane', w: 90, h: 84, d: (s) => P('M0 -38 Q5 -34 5 -22 V-10 L34 8 V16 L5 8 V22 L15 30 V36 L0 32 L-15 36 V30 L-5 22 V8 L-34 16 V8 L-5 -10 V-22 Q-5 -34 0 -38 Z', s) },
+  { id: 'house', name: 'House', w: 80, h: 72, d: (s) => P('M-34 -2 L0 -30 L34 -2', s)
+    + P('M-26 -8 V30 H26 V-8', s) + P('M-8 30 V8 H8 V30', s) }
+];
+ICON_LIB.forEach(c => { IDX['@icon/' + c.id] = c; });
+
 class Component extends DCLogic {
   state = withPrefs({
     subject: 'physics', unit: 'electricity', pick: null,
@@ -1740,6 +1801,8 @@ class Component extends DCLogic {
     panelTab: 'components', library: loadLibrary(), libName: '', libError: '',
     // Transient feedback on the Copy SVG button.
     copyState: '',
+    // Whether the icon shelf under the tool row is open.
+    iconsOpen: false,
     // Name awaiting delete confirmation, and the import/export status line.
     libConfirm: null, libIoMsg: '',
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
@@ -2612,6 +2675,20 @@ class Component extends DCLogic {
       // Select is simply "no tool armed", so it lights up whenever nothing is
       // being placed, and keeps the current selection rather than clearing it.
       selectTool: () => this.setState({ pick: null, draw: null, cursor: null }),
+      // ── Icons ─────────────────────────────────────────────────────────
+      iconsOpen: st.iconsOpen,
+      toggleIcons: () => this.setState(s2 => ({ iconsOpen: !s2.iconsOpen })),
+      iconsBtnStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.iconsOpen ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.iconsOpen ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.iconsOpen ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
+      iconTiles: !st.iconsOpen ? [] : ICON_LIB.map(c => {
+        const key = '@icon/' + c.id, on = st.pick === key;
+        const m = Math.max(c.w, c.h) / 2 + 6;
+        return {
+          name: c.name, viewBox: `${-m} ${-m} ${m * 2} ${m * 2}`,
+          nodes: nodesFor(withInk(dark ? INK_ICON : INK_ICON_LIGHT, () => c.d(Math.max(2.2, m / 15)))),
+          style: `padding: 7px 4px 6px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; font-family: inherit;`,
+          onPick: () => this.setState({ pick: on ? null : key, sel: null, draw: null, cursor: null })
+        };
+      }),
       selectPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${!st.pick && !st.draw ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${!st.pick && !st.draw ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${!st.pick && !st.draw ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
       dimPanelLabel: st.pick === DIM_KEY ? 'Click 2 points' : 'Dimension',
       dimPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === DIM_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === DIM_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
