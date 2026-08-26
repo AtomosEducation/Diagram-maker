@@ -103,6 +103,9 @@ Then visit <http://localhost:8765/>.
   rotates, takes the line-weight slider and exports exactly like a built-in.
   Uploads are kept on the device and travel with **Export Library**
 - Undo/redo, zoom, fit-to-view, rulers, light/dark theme, sans/serif diagram text
+- Favourites — a heart appears on a palette tile as the pointer crosses it,
+  and what you mark collects into a bar along the top of the canvas, reachable
+  from any subject or unit. Kept on the device
 - Cross-subject component search
 - Export the artwork as SVG, or copy it to the clipboard to paste straight into
   a vector editor
