@@ -322,6 +322,15 @@
               </sc-for>
             </div>
           </sc-if>
+          <sc-if value="{{ styleBar }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ styleBarStyle }}">
+              <sc-for list="{{ styleBarBtns }}" as="sb" hint-placeholder-count="3">
+                <button onClick="{{ sb.onClick }}" title="{{ sb.title }}" style="{{ sb.style }}" style-hover="background: var(--ctl-hover);">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="display: block;"><path d="M3 12h18" stroke-dasharray="{{ sb.da }}"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
           <svg ref="{{ svgRef }}" viewBox="{{ viewBox }}" preserveAspectRatio="none" onPointerDown="{{ onCanvasDown }}" onPointerMove="{{ onCanvasMove }}" onDoubleClick="{{ onCanvasDouble }}" style="display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none;">
             <defs>
               <pattern id="g-lines" width="{{ gridSize }}" height="{{ gridSize }}" patternUnits="userSpaceOnUse">
@@ -642,7 +651,7 @@
                 <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">{{ gridExtentTxt }}</span>
               </div>
             </sc-if>
-            <sc-if value="{{ isCutPiece }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ showDash }}" hint-placeholder-val="{{ false }}">
               <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
                 <span style="font-size: 12px; color: var(--fg-2);">Line style</span>
                 <div style="display: flex; gap: 5px;">
@@ -1098,6 +1107,13 @@ const DASHES = {
   dotted: (sw) => `0.01 ${(sw * 2.6).toFixed(1)}`
 };
 const dashFor = (sw, style) => (DASHES[style] || DASHES.solid)(sw);
+// A line style set on an element reaches the strokes its component drew
+// without one of their own. Anything the component deliberately dashed - the
+// guide curve under a cosec graph - keeps what it was given, and fills and
+// glyph text are left alone because neither has a stroke to break up.
+const withDash = (nodes, style) => (!style || style === 'solid') ? nodes
+  : nodes.map(n => (n.stroke && n.stroke !== 'none' && !n.dash)
+    ? { ...n, dash: dashFor(n.sw, style) } : n);
 const strokeD = (d, sw, style) => {
   const da = dashFor(sw, style);
   return da ? `<path d="${d}" ${S(sw)} stroke-dasharray="${da}"/>` : P(d, sw);
@@ -3670,6 +3686,22 @@ class Component extends DCLogic {
   // ── Cutting a shape ─────────────────────────────────────────────────────
   // The nearest cuttable shape under the point, within reach on screen rather
   // than in the drawing, so the tool feels the same at every zoom.
+  // Whether a line style would show on this element. Offering the control on
+  // something drawn entirely in fills - a plotted point, an arrowhead - would
+  // be a button that does nothing.
+  canDash(it) {
+    if (!it || it.text) return false;
+    if (it.wire) return true;
+    const c = compOf(it);
+    if (!c || typeof c.d !== 'function') return false;
+    try {
+      const html = withInk(INK_CANVAS, () => withFont(FONTS[this.fontKey], () => c.d(it.sw, it)));
+      return nodesFor(html).some(n => n.stroke && n.stroke !== 'none');
+    } catch (err) {
+      return false;
+    }
+  }
+
   cutTarget(q) {
     let best = null;
     const take = (t) => { if (t && (!best || t.hit.d < best.hit.d)) best = t; };
@@ -4213,7 +4245,7 @@ class Component extends DCLogic {
         const src = i.text
           ? textHtml(i)
           : c.d(i.sw, i) + compLabel(i, c, showLabels);
-        const nodes = scaleNodes(toNodes(src), i.sx, i.sy);
+        const nodes = scaleNodes(withDash(toNodes(src), i.dash), i.sx, i.sy);
         body += `  <g transform="translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}">${nodesMarkup(nodes)}</g>\n`;
       }
     })));
@@ -4643,9 +4675,9 @@ class Component extends DCLogic {
           // geometry so stroke-width survives a resize untouched. The unscaled
           // markup is what gets cached, so a resize drag reuses the parse.
           transform: `translate(${i.x},${i.y}) rotate(${i.rot})${i.flip ? ' scale(-1,1)' : ''}`,
-          nodes: scaleNodes(nodesFor(withInk(INK_CANVAS, () => i.text
+          nodes: scaleNodes(withDash(nodesFor(withInk(INK_CANVAS, () => i.text
             ? textHtml(i)
-            : c.d(i.sw, i) + compLabel(i, c, showLabels))), i.sx, i.sy),
+            : c.d(i.sw, i) + compLabel(i, c, showLabels))), i.dash), i.sx, i.sy),
           bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
           selected: i.id === st.sel,
           onDown: (e) => this.drag(e, i.id, 'move'),
@@ -4827,7 +4859,7 @@ class Component extends DCLogic {
           const c = IDX[i.key] || { w: 40, h: 40, d: () => '', name: '?' };
           const m = Math.max(c.w, c.h) / 2 + 8;
           viewBox = `${-m} ${-m} ${m * 2} ${m * 2}`;
-          nodes = nodesFor(withInk(ink, () => c.d(Math.max(2.4, m / 14))));
+          nodes = withDash(nodesFor(withInk(ink, () => c.d(Math.max(2.4, m / 14)))), i.dash);
           name = c.name;
         }
         const on = i.id === st.sel;
@@ -4855,7 +4887,9 @@ class Component extends DCLogic {
       gridHMinus: () => this.patchLive(i => ({ grows: gridN(gridH(i) - 1) })),
       gridHPlus: () => this.patchLive(i => ({ grows: gridN(gridH(i) + 1) })),
       setGridStep: (e) => this.patch({ gstep: parseInt(e.target.value, 10) }),
-      isCutPiece: !!(sel && sel.paths),
+      // Drawn shapes carry their own Line style further down; this covers
+      // everything else that has a stroke to break up.
+      showDash: !isWire && this.canDash(sel),
       isPunnett: !!(sel && (IDX[sel.key] || {}).punnett),
       punRowsTxt: sel ? punRows(sel) : 2,
       punColsTxt: sel ? punCols(sel) : 2,
@@ -4946,6 +4980,50 @@ class Component extends DCLogic {
           + ` background: var(--panel); border: 1px solid var(--line); border-radius: 7px;`
           + ` box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); white-space: nowrap;`;
       })(),
+      // ── Line style, over the selection ────────────────────────────────
+      // Alongside the action bar rather than in it: changing a line style is a
+      // choice among three, not a verb, and it belongs where the eye already
+      // is rather than across the canvas in Properties.
+      styleBar: !!sel && !editItem && this.canDash(sel),
+      styleBarStyle: (() => {
+        if (!sel || editItem) return 'display: none;';
+        const z = st.view.z, gut = st.rulers ? 22 : 0;
+        let x0, x1, cy;
+        if (sel.wire) {
+          const b = wireBounds(sel), m = Math.max(10, sel.sw * 5);
+          x0 = b.minX - m; x1 = b.maxX + m; cy = (b.minY + b.maxY) / 2;
+        } else {
+          const c = compOf(sel), a = sel.rot * Math.PI / 180;
+          const hw = c.w * sel.sx / 2 + 6 / z, hh = c.h * sel.sy / 2 + 6 / z;
+          const ex = hw * Math.abs(Math.cos(a)) + hh * Math.abs(Math.sin(a));
+          x0 = sel.x - ex; x1 = sel.x + ex; cy = sel.y;
+        }
+        const BAR_W = 32, gap = 10;
+        let x = gut + (x0 - vb.x) * z - gap, anchor = '-100%';
+        // No room on the left, so it takes the other side rather than sliding
+        // off the edge of the canvas.
+        if (x - BAR_W < gut + 2) { x = gut + (x1 - vb.x) * z + gap; anchor = '0'; }
+        const y = Math.min(Math.max(gut + (cy - vb.y) * z, gut + 52), st.vp.h - 52);
+        return `position: absolute; left: ${x.toFixed(1)}px; top: ${y.toFixed(1)}px;`
+          + ` transform: translate(${anchor}, -50%); z-index: 6; display: flex; flex-direction: column;`
+          + ` gap: 1px; padding: 3px; background: var(--panel); border: 1px solid var(--line);`
+          + ` border-radius: 7px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);`;
+      })(),
+      styleBarBtns: (!sel || editItem) ? [] : [
+        { id: 'solid', title: 'Solid line', da: '' },
+        { id: 'dashed', title: 'Dashed line', da: '5 3.6' },
+        { id: 'dotted', title: 'Dotted line', da: '0.01 4.2' }
+      ].map(o => {
+        const on = (sel.dash || 'solid') === o.id;
+        return {
+          title: o.title, da: o.da,
+          style: 'display: flex; align-items: center; justify-content: center; width: 26px; height: 24px;'
+            + ` padding: 0; color: ${on ? 'var(--on-accent)' : 'var(--fg-2)'};`
+            + ` background: ${on ? 'var(--accent)' : 'transparent'};`
+            + ' border: none; border-radius: 5px; cursor: pointer;',
+          onClick: () => this.patch({ dash: o.id })
+        };
+      }),
       selBarBtns: (!sel || editItem) ? [] : [
         { id: 'flip', title: sel.wire ? 'Reverse direction' : 'Flip horizontally',
           icon: 'M12 3v18M8 8l-4 4 4 4M16 8l4 4-4 4',

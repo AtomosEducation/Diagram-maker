@@ -80,6 +80,9 @@ Then visit <http://localhost:8765/>.
   or bar ends and the label above or below the line
 - Selecting anything floats a small bar over its box — flip, rotate 90°,
   duplicate and delete, without crossing to the Properties panel
+- A Style bar down the left of the selection box sets the line style — solid,
+  dashed or dotted — on anything with a stroke to break up, components
+  included, so a dashed lead or a dotted construction line is one click away
 - Duplicate any placed element — the **Copy** button in Properties, or `Ctrl+D`
 - Settings popover — grid size (snapping follows at half steps), default line
   width, text size, label size and export margin, remembered between sessions
