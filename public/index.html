@@ -334,6 +334,23 @@
               </sc-for>
             </div>
           </sc-if>
+          <sc-if value="{{ rightBar }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ rightBarStyle }}">
+              <sc-for list="{{ rightBarBtns }}" as="rb" hint-placeholder-count="3">
+                <sc-if value="{{ rb.sep }}" hint-placeholder-val="{{ false }}">
+                  <div style="height: 1px; margin: 2px 4px; background: var(--line);"></div>
+                </sc-if>
+                <sc-if value="{{ rb.btn }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ rb.onClick }}" title="{{ rb.title }}" style="{{ rb.style }}" style-hover="background: var(--ctl-hover);">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display: block;">
+                      <path d="{{ rb.icon }}"></path>
+                      <path d="{{ rb.solid }}" fill="currentColor" stroke="none"></path>
+                    </svg>
+                  </button>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
           <sc-if value="{{ labelBar }}" hint-placeholder-val="{{ false }}">
             <div style="{{ labelBarStyle }}">
               <sc-if value="{{ hasLabel }}" hint-placeholder-val="{{ false }}">
@@ -5206,6 +5223,107 @@ class Component extends DCLogic {
           + ` background: var(--panel); border: 1px solid var(--line); border-radius: 7px;`
           + ` box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); white-space: nowrap;`;
       })(),
+      // ── What this element in particular can be told ───────────────────
+      // The bar to the right changes with what is selected: the choice that
+      // belongs to that kind of element and nothing else - the heads on an
+      // angle's arc, the ends of a dimension, how a wire turns a corner.
+      rightBar: (() => {
+        if (!sel || editItem) return false;
+        const c = IDX[sel.key] || {};
+        const kind = sel.wire ? kindOf(sel) : null;
+        return !!(c.angle || c.hollowable || (sel.text && !sel.eq)
+          || kind === 'dim' || kind === 'poly' || kind === 'seg' || kind === 'polyline');
+      })(),
+      rightBarBtns: (() => {
+        if (!sel || editItem) return [];
+        const out = [];
+        const btn = (title, on, icon, solid, onClick) => out.push({
+          btn: true, sep: false, title, icon: icon || '', solid: solid || '', onClick,
+          style: 'display: flex; align-items: center; justify-content: center; width: 26px;'
+            + ` height: 24px; padding: 0; color: ${on ? 'var(--on-accent)' : 'var(--fg-2)'};`
+            + ` background: ${on ? 'var(--accent)' : 'transparent'};`
+            + ' border: none; border-radius: 5px; cursor: pointer;'
+        });
+        const rule = () => out.push({ btn: false, sep: true, title: '', icon: '', solid: '', onClick: null, style: '' });
+        const pick = (o) => () => this.patch(o);
+        const c = IDX[sel.key] || {};
+        const kind = sel.wire ? kindOf(sel) : null;
+        // Straight run, chevron at one end, chevrons at both.
+        const LINE = 'M4 12h16';
+        const HEAD_R = 'M14.5 7.5L19 12L14.5 16.5';
+        const HEAD_L = 'M9.5 7.5L5 12L9.5 16.5';
+        const HEAD_M = 'M9.5 8L13.5 12L9.5 16';
+        if (c.angle) {
+          const st2 = sel.astyle || 'arc';
+          btn('Arc', st2 === 'arc', 'M6 18A12 12 0 0 1 18 6', '', pick({ astyle: 'arc' }));
+          btn('Right angle', st2 === 'right', 'M6 18V10H14', '', pick({ astyle: 'right' }));
+          if (st2 !== 'right') {
+            rule();
+            // The heads ride the ends of the arc, so the icons show them there.
+            const ARC = 'M6 18A12 12 0 0 1 18 6';
+            const A_END = 'M19.7 9.6L18 6L16.3 9.6';
+            const A_START = 'M9.6 16.3L6 18L9.6 19.7';
+            const a = sel.aarrow || 'none';
+            btn('No arrowhead', a === 'none', ARC, '', pick({ aarrow: 'none' }));
+            btn('One arrowhead', a === 'end', ARC + A_END, '', pick({ aarrow: 'end' }));
+            btn('Both arrowheads', a === 'both', ARC + A_END + A_START, '', pick({ aarrow: 'both' }));
+          }
+        } else if (kind === 'dim') {
+          const e = sel.dimEnd || 'arrow';
+          btn('Arrow ends', e === 'arrow', LINE + HEAD_L + HEAD_R, '', pick({ dimEnd: 'arrow' }));
+          btn('Dot ends', e === 'dot', 'M6 12h12',
+            'M6 12a2 2 0 11-4 0a2 2 0 114 0M22 12a2 2 0 11-4 0a2 2 0 114 0', pick({ dimEnd: 'dot' }));
+          btn('Bar ends', e === 'bar', LINE + 'M4 7V17M20 7V17', '', pick({ dimEnd: 'bar' }));
+        } else if (kind === 'poly' || kind === 'seg' || kind === 'polyline') {
+          const a = sel.arrow || 'none';
+          btn('No arrow', a === 'none', LINE, '', pick({ arrow: 'none' }));
+          btn('Arrow at the middle', a === 'mid', LINE + HEAD_M, '', pick({ arrow: 'mid' }));
+          btn('Arrow at the end', a === 'end', LINE + HEAD_R, '', pick({ arrow: 'end' }));
+          if (kind === 'poly') {
+            rule();
+            const r = sel.route || 'straight';
+            btn('Straight run', r === 'straight', 'M4 19L20 5', '', pick({ route: 'straight' }));
+            btn('Right-angle run', r === 'ortho', 'M4 19H12V5H20', '', pick({ route: 'ortho' }));
+          }
+        } else if (c.hollowable) {
+          btn('Filled', !sel.hollow, '', 'M17 12a5 5 0 11-10 0a5 5 0 1110 0', pick({ hollow: false }));
+          btn('Hollow', !!sel.hollow, 'M12 7a5 5 0 100 10a5 5 0 100-10', '', pick({ hollow: true }));
+        } else if (sel.text && !sel.eq) {
+          const BASE = 'M6 17h12';
+          const d = sel.deco || 'none';
+          const ART = { none: '', bar: 'M6 8h12', arrow: 'M6 8h12M15 5L18 8L15 11',
+            hat: 'M8 9L12 5L16 9', dot: '', ddot: '', tilde: '' };
+          const DOTS = { dot: 'M13.4 7a1.4 1.4 0 11-2.8 0a1.4 1.4 0 112.8 0',
+            ddot: 'M11 7a1.3 1.3 0 11-2.6 0a1.3 1.3 0 112.6 0M15.6 7a1.3 1.3 0 11-2.6 0a1.3 1.3 0 112.6 0' };
+          TEXT_DECOS.forEach(o => btn(o.name, d === o.id, BASE + (ART[o.id] || ''), DOTS[o.id] || '',
+            pick({ deco: o.id })));
+        }
+        return out;
+      })(),
+      rightBarStyle: (() => {
+        if (!sel || editItem) return 'display: none;';
+        const z = st.view.z, gut = st.rulers ? 22 : 0;
+        let x1, cy;
+        if (sel.wire) {
+          const b = wireBounds(sel), m = Math.max(10, sel.sw * 5);
+          x1 = b.maxX + m; cy = (b.minY + b.maxY) / 2;
+        } else {
+          const c = compOf(sel), a = sel.rot * Math.PI / 180;
+          const hw = c.w * sel.sx / 2 + 6 / z, hh = c.h * sel.sy / 2 + 6 / z;
+          x1 = sel.x + hw * Math.abs(Math.cos(a)) + hh * Math.abs(Math.sin(a));
+          cy = sel.y;
+        }
+        const BAR_W = 34;
+        // Held inside the canvas rather than flipped, so it never lands on top
+        // of the Style bar on the other side.
+        const x = Math.min(gut + (x1 - vb.x) * z + 10, st.vp.w - BAR_W - 2);
+        const y = Math.min(Math.max(gut + (cy - vb.y) * z, gut + 60), st.vp.h - 60);
+        return `position: absolute; left: ${x.toFixed(1)}px; top: ${y.toFixed(1)}px;`
+          + ' transform: translate(0, -50%); z-index: 6; display: flex; flex-direction: column;'
+          + ' gap: 1px; padding: 3px; background: var(--panel); border: 1px solid var(--line);'
+          + ' border-radius: 7px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);';
+      })(),
+
       // ── Label, under the selection ────────────────────────────────────
       // Typing a label is the commonest thing done to a placed element, and it
       // was the one thing that still meant crossing to the Properties panel.

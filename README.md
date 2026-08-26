@@ -87,6 +87,10 @@ Then visit <http://localhost:8765/>.
   or bar ends and the label above or below the line
 - Selecting anything floats a small bar over its box — flip, rotate 90°,
   duplicate and delete, without crossing to the Properties panel
+- A bar down the right of the selection box carries whatever belongs to that
+  kind of element and nothing else — the arc or right angle and the arrowheads
+  on an angle mark, the ends of a dimension, the arrow and corner routing on a
+  wire, filled or hollow on a point, the mark over a piece of text
 - A Style bar down the left of the selection box sets the line style — solid,
   dashed or dotted — on anything with a stroke to break up, components
   included, so a dashed lead or a dotted construction line is one click away
