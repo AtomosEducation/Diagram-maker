@@ -70,6 +70,10 @@ Then visit <http://localhost:8765/>.
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
 - Label can sit above or below a component
+- A Label bar under the selection box types the label straight onto the canvas,
+  with two arrows to put it above or below. `_` drops what follows and `^`
+  raises it — `H_2O`, `10^24`, `d_{AB}` — taking a braced group, a run of
+  digits, or one character
 - Text typed straight onto the canvas — the editor opens where you place it, and
   double-clicking any label reopens it
 - Free-standing text placed anywhere on the canvas, rotatable to any angle,

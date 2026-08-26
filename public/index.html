@@ -334,6 +334,19 @@
               </sc-for>
             </div>
           </sc-if>
+          <sc-if value="{{ labelBar }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ labelBarStyle }}">
+              <input ref="{{ labelBarRef }}" value="{{ labelBarValue }}" onChange="{{ setLabelBar }}" placeholder="{{ labelBarHint }}" style="width: 132px; height: 24px; padding: 0 7px; font-family: inherit; font-size: 12px; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;" style-focus="border-color: var(--accent-fg);" />
+              <sc-if value="{{ labelBarPos }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ labelUp }}" title="Put the label above" style="{{ labelUpStyle }}" style-hover="background: var(--ctl-hover);">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><path d="M12 19V6M6 12l6-6 6 6"></path></svg>
+                </button>
+                <button onClick="{{ labelDown }}" title="Put the label below" style="{{ labelDownStyle }}" style-hover="background: var(--ctl-hover);">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><path d="M12 5v13M6 12l6 6 6-6"></path></svg>
+                </button>
+              </sc-if>
+            </div>
+          </sc-if>
           <sc-if value="{{ favBar }}" hint-placeholder-val="{{ false }}">
             <div style="{{ favBarStyle }}">
               <sc-for list="{{ favBarItems }}" as="fv" hint-placeholder-count="4">
@@ -904,6 +917,72 @@ const TXR = (x, y, t, fs, deg) => {
   if (!deg) return TX(fx, fy, t, fs);
   return `<text x="${fx}" y="${fy}" dy="${((fs || 14) * BASE_DY).toFixed(2)}" text-anchor="middle" font-size="${fs || 14}" font-family="${FONT}" fill="${INK}" stroke="none" transform="rotate(${deg.toFixed(2)} ${fx} ${fy})">${t}</text>`;
 };
+
+// -- Subscripts and superscripts in a label --------------------------------
+// `_` drops what follows and `^` raises it, taking a braced group, a run of
+// digits, or one character - so H_2O and 10^24 both read the way they are
+// typed. A label with neither goes out as the single centred <text> it always
+// was, which keeps the vertical centring that Illustrator depends on.
+const LBL_RE = /[_^]/;
+const labelParts = (str) => {
+  const out = [];
+  let plain = '';
+  const push = (t, lvl) => { if (t) out.push({ t, lvl }); };
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    // A backslash lets an underscore be an underscore.
+    if (c === '\\' && (str[i + 1] === '_' || str[i + 1] === '^')) { plain += str[i + 1]; i++; continue; }
+    if (c !== '_' && c !== '^') { plain += c; continue; }
+    const lvl = c === '_' ? 1 : -1;
+    let j = i + 1, t = '';
+    if (str[j] === '{') {
+      let depth = 1; j++;
+      while (j < str.length && depth) {
+        if (str[j] === '{') depth++;
+        else if (str[j] === '}') { depth--; if (!depth) break; }
+        t += str[j]; j++;
+      }
+    } else if (/\d/.test(str[j] || '')) {
+      while (j < str.length && /\d/.test(str[j])) { t += str[j]; j++; }
+      j--;
+    } else if (j < str.length) {
+      t = str[j];
+    }
+    if (!t) { plain += c; continue; }
+    push(plain, 0); plain = '';
+    push(t, lvl);
+    i = j;
+  }
+  push(plain, 0);
+  return out;
+};
+// Runs are emitted centred on their own advance, because every <text> the node
+// model renders is anchored in the middle. Same result as laying them out from
+// the left, and nothing in the model has to change.
+const LBL = (x, y, str, fs, deg) => {
+  const raw = String(str);
+  if (!LBL_RE.test(raw)) return TXR(x, y, ESC(raw), fs, deg);
+  const parts = labelParts(raw);
+  if (parts.length === 1 && !parts[0].lvl) return TXR(x, y, ESC(parts[0].t), fs, deg);
+  const small = fs * 0.7;
+  const w = parts.map(p => textW(p.t, p.lvl ? small : fs, FONT));
+  const total = w.reduce((a, b) => a + b, 0);
+  const fx = +x.toFixed(2), fy = +y.toFixed(2);
+  const tr = deg ? ` transform="rotate(${deg.toFixed(2)} ${fx} ${fy})"` : '';
+  let cx = -total / 2, out = '';
+  parts.forEach((p, i) => {
+    // A common baseline for every run, shifted for the ones that ride high or
+    // low, so the parts of one label line up as a single word.
+    const dy = fs * BASE_DY + (p.lvl > 0 ? fs * 0.22 : p.lvl < 0 ? -fs * 0.36 : 0);
+    const px = +(x + cx + w[i] / 2).toFixed(2);
+    out += `<text x="${px}" y="${fy}" dy="${dy.toFixed(2)}" text-anchor="middle"`
+      + ` font-size="${+(p.lvl ? small : fs).toFixed(2)}" font-family="${FONT}"`
+      + ` fill="${INK}" stroke="none"${tr}>${ESC(p.t)}</text>`;
+    cx += w[i];
+  });
+  return out;
+};
+
 const ARROW = (x1, y1, x2, y2, sw, h) => {
   const a = Math.atan2(y2 - y1, x2 - x1), s = h || 8;
   const p1 = [x2 - s * Math.cos(a - 0.45), y2 - s * Math.sin(a - 0.45)];
@@ -981,7 +1060,7 @@ const compLabel = (it, comp, show) => {
   // An angle puts its own label on the bisector, not beside the shape.
   if (!show || !it.label || (comp && comp.angle)) return '';
   const off = comp.lgap != null ? comp.lgap : comp.h / 2 + 20;
-  return TX(0, it.lpos === 'above' ? -off : off, ESC(it.label), LABEL_FS);
+  return LBL(0, it.lpos === 'above' ? -off : off, it.label, LABEL_FS, 0);
 };
 
 // ── String markup → plain node descriptors ────────────────────────────────
@@ -1695,7 +1774,7 @@ const geomHtml = (it, kind, withLabel) => {
       deg = (at.a || 0) * 180 / Math.PI;
       if (deg > 90) deg -= 180; else if (deg < -90) deg += 180;
     }
-    out += TXR(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), ESC(it.label), LABEL_FS, deg);
+    out += LBL(at.x - g * Math.cos(perp), at.y - g * Math.sin(perp), it.label, LABEL_FS, deg);
   }
   return out;
 };
@@ -1712,7 +1791,7 @@ const wireHtml = (it, withLabel) => {
   if (withLabel && it.label) {
     const q = ptAt(pts, 0.5);
     const perp = q.a + Math.PI / 2;
-    out += TX(q.x - 15 * Math.cos(perp), q.y - 15 * Math.sin(perp), ESC(it.label), LABEL_FS);
+    out += LBL(q.x - 15 * Math.cos(perp), q.y - 15 * Math.sin(perp), it.label, LABEL_FS, 0);
   }
   return out;
 };
@@ -4023,6 +4102,7 @@ class Component extends DCLogic {
   }
 
   attachLabelInput = (el) => { this._labelEl = el; };
+  attachBarLabel = (el) => { this._barLabelEl = el; };
 
   // The on-canvas editor. Focus and select-all happen once, when the element
   // first appears, so re-renders while typing do not fight the caret.
@@ -4441,6 +4521,9 @@ class Component extends DCLogic {
     // Found once and read by both the highlight and the mark, rather than
     // walking every item twice on each pointer move.
     const cutAim = st.pick === CUT_KEY && st.cursor ? this.cutTarget(st.cursor) : null;
+    const labelPosStyle = (on) => 'display: flex; align-items: center; justify-content: center;'
+      + ` width: 24px; height: 24px; padding: 0; color: ${on ? 'var(--on-accent)' : 'var(--fg-2)'};`
+      + ` background: ${on ? 'var(--accent)' : 'transparent'}; border: none; border-radius: 5px; cursor: pointer;`;
     // Viewport-derived viewBox: width/height come from the measured pixel size
     // so one canvas unit is exactly `z` pixels and the rulers stay honest.
     const vb = { x: st.view.x, y: st.view.y, w: st.vp.w / st.view.z, h: st.vp.h / st.view.z };
@@ -5104,6 +5187,56 @@ class Component extends DCLogic {
           + ` background: var(--panel); border: 1px solid var(--line); border-radius: 7px;`
           + ` box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); white-space: nowrap;`;
       })(),
+      // ── Label, under the selection ────────────────────────────────────
+      // Typing a label is the commonest thing done to a placed element, and it
+      // was the one thing that still meant crossing to the Properties panel.
+      // Text and equations are left out: they are edited in place already, and
+      // two fields for the same string would only fight over the caret.
+      labelBar: !!sel && !editItem && !sel.text,
+      labelBarValue: sel && sel.label != null ? String(sel.label) : '',
+      labelBarHint: 'Label   _sub  ^sup',
+      labelBarRef: this.attachBarLabel,
+      setLabelBar: (e) => this.patch({ label: e.target.value }),
+      // A wire carries its label at its midpoint with no side to choose, so the
+      // arrows only appear where there is a choice to make.
+      labelBarPos: !!sel && (!sel.wire || kindOf(sel) === 'dim'),
+      labelUp: () => this.patch({ lpos: 'above' }),
+      labelDown: () => this.patch({ lpos: 'below' }),
+      labelUpStyle: labelPosStyle((sel && sel.lpos) === 'above'),
+      labelDownStyle: labelPosStyle((sel && sel.lpos) !== 'above'),
+      labelBarStyle: (() => {
+        if (!sel || editItem) return 'display: none;';
+        const z = st.view.z, gut = st.rulers ? 22 : 0;
+        let cx, top, bot;
+        if (sel.wire) {
+          const b = wireBounds(sel), m = Math.max(10, sel.sw * 5);
+          cx = (b.minX + b.maxX) / 2; top = b.minY - m; bot = b.maxY + m;
+        } else {
+          const c = compOf(sel), a = sel.rot * Math.PI / 180;
+          // A label sitting below reaches past the box, and the bar covering
+          // the very label being typed would be the one place not to put it.
+          let hu = c.h / 2;
+          if (sel.label && sel.lpos !== 'above' && !c.angle) {
+            const off = c.lgap != null ? c.lgap : c.h / 2 + 20;
+            hu = Math.max(hu, off + st.labelFs * 0.7);
+          }
+          const hw = c.w * sel.sx / 2 + 6 / z, hh = hu * sel.sy + 6 / z;
+          const ey = hw * Math.abs(Math.sin(a)) + hh * Math.abs(Math.cos(a));
+          cx = sel.x; top = sel.y - ey; bot = sel.y + ey;
+        }
+        // The action bar drops underneath when the element is against the top
+        // of the viewport; this one then takes the row below it.
+        const gap = sel.wire ? 12 : 32;
+        const pushed = gut + (top - vb.y) * z - gap - 32 < gut + 2 ? 38 : 0;
+        const half = 110;
+        const left = Math.min(Math.max(gut + (cx - vb.x) * z, gut + half + 2), st.vp.w - half - 2);
+        const y = Math.min(gut + (bot - vb.y) * z + 12 + pushed, st.vp.h - 34);
+        return `position: absolute; left: ${left.toFixed(1)}px; top: ${y.toFixed(1)}px;`
+          + ' transform: translate(-50%, 0); z-index: 6; display: flex; align-items: center; gap: 3px;'
+          + ' padding: 3px; background: var(--panel); border: 1px solid var(--line);'
+          + ' border-radius: 7px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); white-space: nowrap;';
+      })(),
+
       // ── Favourites, along the top of the canvas ───────────────────────
       // Reachable whatever subject or unit is open, which is the whole point
       // of marking one. A key that no longer resolves - an uploaded icon since
