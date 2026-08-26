@@ -53,7 +53,8 @@ Then visit <http://localhost:8765/>.
   single or double chevrons for parallel sides
 - Plane Geometry drawing tools — segment, ray, polyline, polygon, arc and circle, all drawn
   by clicking on the canvas, with solid/dashed/dotted line styles and an
-  adjustable curvature on arcs
+  adjustable curvature on arcs. The circle's side handles pull it into an oval,
+  which then turns like anything else
 - The Coordinate Geometry grid is built to order — set how many vertical and
   horizontal lines it has and how far apart they sit, anything from a 2×2 box
   to a full sheet of graph paper
@@ -63,8 +64,8 @@ Then visit <http://localhost:8765/>.
 - Everything on the canvas carries the same selection box — eight handles to
   resize and a knob to turn it. A drawn shape has no scale or rotation of its
   own, so its handles work on the points themselves; its vertex dots stay put
-  for reshaping one corner at a time. A circle or arc keeps its curvature under
-  a corner drag, and Shift holds the proportions on anything else
+  for reshaping one corner at a time. An arc keeps its curvature under a corner
+  drag, and Shift holds the proportions on anything else
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
 - Label can sit above or below a component

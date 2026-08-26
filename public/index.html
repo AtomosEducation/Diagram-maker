@@ -1118,10 +1118,6 @@ const strokeD = (d, sw, style) => {
   const da = dashFor(sw, style);
   return da ? `<path d="${d}" ${S(sw)} stroke-dasharray="${da}"/>` : P(d, sw);
 };
-const strokeC = (cx, cy, r, sw, style) => {
-  const da = dashFor(sw, style);
-  return da ? `<circle cx="${cx}" cy="${cy}" r="${r}" ${S(sw)} stroke-dasharray="${da}"/>` : C(cx, cy, r, sw);
-};
 const BULGE = (b) => (b == null ? 0.3 : b);
 // Perpendicular offset of an arc's midpoint from its chord. Positive bows the
 // arc to one side, negative to the other, and 0 is a straight line.
@@ -1141,7 +1137,31 @@ const arcD = (a, b, bulge) => {
   const large = Math.abs(h) > c / 2 ? 1 : 0;
   return `M${a.x} ${a.y} A${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} ${h > 0 ? 1 : 0} ${b.x} ${b.y}`;
 };
+// A drawn circle is a centre and a point on it, so the distance between them
+// is the horizontal radius. `ry` and `erot` are only present once the shape has
+// been pulled out of round, which is what lets the same tool draw an oval.
 const circleR = (it) => Math.hypot(it.pts[1].x - it.pts[0].x, it.pts[1].y - it.pts[0].y);
+const circleRY = (it) => (it.ry == null ? circleR(it) : Math.abs(it.ry));
+const circleRot = (it) => it.erot || 0;
+// An oval that has been turned cannot be an <ellipse> without a transform the
+// node model does not carry, so it becomes a path and the turn rides in the
+// arc's own x-axis rotation.
+const ellD = (cx, cy, rx, ry, rot) => {
+  const a = (rot || 0) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+  const f = (v) => +v.toFixed(2);
+  const x0 = cx - rx * c, y0 = cy - rx * sn, x1 = cx + rx * c, y1 = cy + rx * sn;
+  // Closed, so the scissor reads it as a closed outline - opening on the first
+  // click and parting on the second - rather than as a curve that merely ends
+  // where it began.
+  return `M${f(x0)} ${f(y0)}A${f(rx)} ${f(ry)} ${rot || 0} 1 0 ${f(x1)} ${f(y1)}`
+    + `A${f(rx)} ${f(ry)} ${rot || 0} 1 0 ${f(x0)} ${f(y0)}Z`;
+};
+const strokeE = (cx, cy, rx, ry, rot, sw, style) => {
+  if (rot) return strokeD(ellD(cx, cy, rx, ry, rot), sw, style);
+  const da = dashFor(sw, style);
+  return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${S(sw)}`
+    + `${da ? ` stroke-dasharray="${da}"` : ''}/>`;
+};
 
 // ── Angle marks ───────────────────────────────────────────────────────────
 // Placed by clicking two lines rather than dropped at a point: the vertex is
@@ -1226,10 +1246,7 @@ const AHEAD2 = (x, y, a, size, style, sw) => {
 // is actually drawn, or a circle could only be caught along its radius.
 const hitD = (it) => {
   const kind = kindOf(it), p = it.pts;
-  if (kind === 'circle') {
-    const a = p[0], r = circleR(it);
-    return `M${a.x - r} ${a.y} A${r} ${r} 0 1 0 ${a.x + r} ${a.y} A${r} ${r} 0 1 0 ${a.x - r} ${a.y}`;
-  }
+  if (kind === 'circle') return ellD(p[0].x, p[0].y, circleR(it), circleRY(it), circleRot(it));
   if (kind === 'arc') return arcD(p[0], p[1], it.bulge);
   if (kind === 'polygon') return polyD(p) + ' Z';
   if (kind === 'dim') return polyD([p[0], p[1]]);
@@ -1433,7 +1450,7 @@ const pathComp = (i) => {
 // The item's own frame, for turning a canvas point into component coordinates
 // and its outlines back into canvas ones.
 const itemMat = (it) => parseTransform(
-  `translate(${it.x},${it.y}) rotate(${it.rot || 0})`
+  `translate(${it.x || 0},${it.y || 0}) rotate(${it.rot || 0})`
   + `${it.flip ? ' scale(-1,1)' : ''} scale(${it.sx == null ? 1 : it.sx},${it.sy == null ? 1 : it.sy})`);
 const toLocal = (it, q) => {
   const a = -(it.rot || 0) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
@@ -1504,8 +1521,12 @@ const onCircle = (cx, cy, r, ang) => ({ x: cx + r * Math.cos(ang), y: cy + r * M
 const cutHit = (it, kind, q) => {
   if (kind === 'circle') {
     const c = it.pts[0], r = circleR(it);
+    if (r < 1e-6) return null;
+    // Only a true circle can be measured by angle alone; an oval is walked as
+    // an outline, which is also how its pieces come away.
+    if (Math.abs(r - circleRY(it)) > 0.5) return null;
     const dx = q.x - c.x, dy = q.y - c.y, d = Math.hypot(dx, dy);
-    if (d < 1e-6 || r < 1e-6) return null;
+    if (d < 1e-6) return null;
     return { d: Math.abs(d - r), ang: Math.atan2(dy, dx), x: c.x + r * dx / d, y: c.y + r * dy / d };
   }
   if (kind === 'arc') {
@@ -1593,9 +1614,9 @@ const geomHtml = (it, kind, withLabel) => {
   const p = it.pts, a = p[0], b = p[p.length - 1];
   let out = '', at = null;
   if (kind === 'circle') {
-    const r = circleR(it);
-    out = strokeC(a.x, a.y, r, it.sw, it.dash);
-    at = { x: a.x, y: a.y - r, a: 0 };
+    const rx = circleR(it), ry = circleRY(it);
+    out = strokeE(a.x, a.y, rx, ry, circleRot(it), it.sw, it.dash);
+    at = { x: a.x, y: a.y - ry, a: 0 };
   } else if (kind === 'arc') {
     out = strokeD(arcD(a, b, it.bulge), it.sw, it.dash);
     const q = arcApex(a, b, it.bulge);
@@ -2443,8 +2464,12 @@ const wireBounds = (it) => {
   // A circle reaches a radius past its centre and an arc bows past its chord,
   // so neither is bounded by its own points.
   if (kind === 'circle') {
-    const a = it.pts[0], r = circleR(it);
-    return { minX: a.x - r, maxX: a.x + r, minY: a.y - r, maxY: a.y + r };
+    const a = it.pts[0], rx = circleR(it), ry = circleRY(it);
+    // The upright extent of a turned ellipse, not of its axes.
+    const t = circleRot(it) * Math.PI / 180, c = Math.cos(t), sn = Math.sin(t);
+    const ex = Math.sqrt(rx * rx * c * c + ry * ry * sn * sn);
+    const ey = Math.sqrt(rx * rx * sn * sn + ry * ry * c * c);
+    return { minX: a.x - ex, maxX: a.x + ex, minY: a.y - ey, maxY: a.y + ey };
   }
   const pts = kind === 'arc'
     ? it.pts.concat([arcApex(it.pts[0], it.pts[1], it.bulge)])
@@ -3444,9 +3469,14 @@ class Component extends DCLogic {
     const ax = hx > 0 ? b.minX : hx < 0 ? b.maxX : (b.minX + b.maxX) / 2;
     const ay = hy > 0 ? b.minY : hy < 0 ? b.maxY : (b.minY + b.maxY) / 2;
     const pts0 = it.pts.map(p => ({ x: p.x, y: p.y }));
-    // A circle stays a circle and an arc stays circular, so those take one
-    // factor on both axes rather than being squashed into an ellipse.
-    const kind = kindOf(it), even = kind === 'circle' || kind === 'arc';
+    // An arc has to stay circular - its curvature is stored as a ratio that
+    // only describes a circle - so it takes one factor on both axes. A circle
+    // takes them separately, which is what lets the side handles pull it into
+    // an oval; its radii are held on the item rather than in its two points.
+    const kind = kindOf(it), even = kind === 'arc';
+    const round = kind === 'circle';
+    const rx0 = round ? circleR(it) : 0, ry0 = round ? circleRY(it) : 0;
+    const c0 = round ? { x: it.pts[0].x, y: it.pts[0].y } : null;
     this.commit(null);
     this.setState({ sel: id, pick: null });
     const move = (ev) => {
@@ -3459,6 +3489,13 @@ class Component extends DCLogic {
       if (even || ev.shiftKey) {
         const f = hx && hy ? Math.max(fx, fy) : (hx ? fx : fy);
         fx = fy = f;
+      }
+      if (round) {
+        const cx = ax + (c0.x - ax) * fx, cy = ay + (c0.y - ay) * fy;
+        const rx = Math.max(0.5, rx0 * fx), ry = Math.max(0.5, ry0 * fy);
+        this.setState(s2 => ({ items: s2.items.map(i => i.id === id
+          ? { ...i, pts: [{ x: cx, y: cy }, { x: cx + rx, y: cy }], ry } : i) }));
+        return;
       }
       const pts = pts0.map(q => ({ x: ax + (q.x - ax) * fx, y: ay + (q.y - ay) * fy }));
       this.setState(s2 => ({ items: s2.items.map(i => i.id === id ? { ...i, pts } : i) }));
@@ -3474,6 +3511,11 @@ class Component extends DCLogic {
     const b = wireBounds(it);
     const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
     const pts0 = it.pts.map(p => ({ x: p.x, y: p.y }));
+    // Turning an oval by moving its centre and radius point would not turn it
+    // at all - the radii are axis-aligned - so it carries its own angle, and
+    // its centre is the point it turns about anyway.
+    const round = kindOf(it) === 'circle';
+    const rot0 = round ? circleRot(it) : 0;
     // The knob starts above the shape, so that is the angle to measure from.
     const a0 = -Math.PI / 2;
     this.commit(null);
@@ -3482,6 +3524,11 @@ class Component extends DCLogic {
       const p = this.rawPt(ev);
       let deg = (Math.atan2(p.y - cy, p.x - cx) - a0) * 180 / Math.PI;
       deg = ev.shiftKey ? Math.round(deg / 15) * 15 : Math.round(deg);
+      if (round) {
+        const erot = ((rot0 + deg) % 360 + 360) % 360;
+        this.setState(s2 => ({ items: s2.items.map(i => i.id === id ? { ...i, erot } : i) }));
+        return;
+      }
       const r = deg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
       const pts = pts0.map(q => {
         const dx = q.x - cx, dy = q.y - cy;
@@ -3709,6 +3756,14 @@ class Component extends DCLogic {
       if (it.wire) {
         const kind = kindOf(it);
         if (!CUTTABLE[kind]) return;
+        // An oval has no circular-arc form to part into, so it is walked as an
+        // outline and its pieces come away as bare paths, like a component's.
+        if (kind === 'circle' && Math.abs(circleR(it) - circleRY(it)) > 0.5) {
+          const subs = { subs: cmdsToSubs(pathAbs(hitD(it)), false), extra: '' };
+          const h = subs.subs.length ? subsNear(subs.subs, q) : null;
+          if (h) take({ it, kind: 'oval', subs, hit: h });
+          return;
+        }
         const hit = cutHit(it, kind, q);
         if (hit) take({ it, kind, hit });
         return;
@@ -3773,6 +3828,11 @@ class Component extends DCLogic {
           paths: moved.map(x => ({ d: subD(x), fill: !!x.fill })),
           pw: box.w, ph: box.h, extra: g.extra,
           dash: it.dash || 'solid',
+          // Whatever it came from, a piece is bare outlines now - not a wire
+          // with points, which is how a cut oval stops being drawn as one. A
+          // drawn shape carries no frame of its own, so the piece needs one.
+          wire: false, rot: it.rot || 0, flip: !!it.flip,
+          sx: it.sx == null ? 1 : it.sx, sy: it.sy == null ? 1 : it.sy,
           label: k === keeps ? it.label : ''
         };
       });
@@ -3788,7 +3848,7 @@ class Component extends DCLogic {
   cutClick(q) {
     const t = this.cutTarget(q);
     if (!t) return;
-    if (t.kind === 'comp') { this.cutComponent(t.it, t.subs, t.hit); return; }
+    if (t.kind === 'comp' || t.kind === 'oval') { this.cutComponent(t.it, t.subs, t.hit); return; }
     // A circle has no ends, so one cut leaves it whole - it takes two points
     // to lift an arc out of it. Everything else parts at a single click.
     if (t.kind === 'circle') {
