@@ -150,7 +150,7 @@
               <path d="{{ n.d }}" transform="{{ n.tr }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></path>
             </sc-if>
             <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-              <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" transform="{{ n.tr }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+              <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" transform="{{ n.tr }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round"></ellipse>
             </sc-if>
           </sc-for>
         </svg>
@@ -273,7 +273,7 @@
                   <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
                 </sc-if>
                 <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                  <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                  <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round"></ellipse>
                 </sc-if>
                 <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
                   <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
@@ -379,7 +379,7 @@
                         <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round" stroke-linejoin="round"></path>
                       </sc-if>
                       <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round"></ellipse>
                       </sc-if>
                     </sc-for>
                   </svg>
@@ -421,7 +421,7 @@
                   <!-- A drawn circle arrives as an ellipse node; without this
                        branch it renders in the export but not on the canvas. -->
                   <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
                     <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
@@ -436,7 +436,7 @@
                     <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
                   </sc-if>
                   <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round"></ellipse>
                   </sc-if>
                 </sc-for>
               </g>
@@ -449,7 +449,7 @@
                     <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
                   </sc-if>
                   <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                    <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
                     <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
@@ -573,7 +573,7 @@
                             <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round" stroke-linejoin="round"></path>
                           </sc-if>
                           <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                            <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}"></ellipse>
+                            <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-linecap="round"></ellipse>
                           </sc-if>
                         </sc-for>
                       </svg>
@@ -605,7 +605,7 @@
                         <path d="{{ n.d }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round" stroke-linejoin="round"></path>
                       </sc-if>
                       <sc-if value="{{ n.isEllipse }}" hint-placeholder-val="{{ false }}">
-                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
+                        <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}" stroke-linecap="round"></ellipse>
                       </sc-if>
                       <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
                         <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
@@ -1176,7 +1176,9 @@ const nodesMarkup = (nodes) => nodes.map(n => {
   // rather than emitting stroke-width="0" noise.
   const stroke = n.stroke === 'none' ? ' stroke="none"' : ` stroke="${n.stroke}" stroke-width="${n.sw}"${dash}`;
   if (n.isPath) return `<path d="${n.d}" fill="${n.fill}"${stroke}${n.stroke === 'none' ? '' : ' stroke-linecap="round" stroke-linejoin="round"'}/>`;
-  if (n.isEllipse) return `<ellipse cx="${n.cx}" cy="${n.cy}" rx="${n.rx}" ry="${n.ry}" fill="${n.fill}"${stroke}/>`;
+  // The round cap is what turns a dash into a dot, and an ellipse needs it
+  // spelled out the same way a path does - the node model carries no cap.
+  if (n.isEllipse) return `<ellipse cx="${n.cx}" cy="${n.cy}" rx="${n.rx}" ry="${n.ry}" fill="${n.fill}"${stroke}${n.stroke === 'none' ? '' : ' stroke-linecap="round"'}/>`;
   if (n.isText) return `<text x="${n.x}" y="${n.y}" dy="${(+(n.dy || 0)).toFixed(2)}"${n.tr ? ` transform="${n.tr}"` : ''} text-anchor="middle" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}"${n.fst && n.fst !== 'normal' ? ` font-style="${n.fst}"` : ''} fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
   return '';
 }).join('');
@@ -1237,8 +1239,14 @@ const KIND_PTS = { seg: 2, arc: 2, circle: 2, dim: 2 };
 const DASHES = {
   solid: () => '',
   dashed: (sw) => `${(sw * 4.5).toFixed(1)} ${(sw * 3.2).toFixed(1)}`,
-  // A dot is a zero-length dash with a round cap.
-  dotted: (sw) => `0.01 ${(sw * 2.6).toFixed(1)}`
+  // A dot is a very short dash left round by the cap - short, but not nothing.
+  // A zero-length dash is the usual idiom for this and the renderer honours it
+  // only in the sense that it paints something: coverage is scaled by the
+  // segment's own length, so at 1:1 the darkest pixel of a dot came out at
+  // about a tenth of full strength and the line read as blank. Measured across
+  // weights and zooms, 0.4 of the stroke width is where the default weight
+  // lands solid while the dot is still round - 1.4 wide against a 1.6 gap.
+  dotted: (sw) => `${(sw * 0.4).toFixed(2)} ${(sw * 2.6).toFixed(2)}`
 };
 const dashFor = (sw, style) => (DASHES[style] || DASHES.solid)(sw);
 // A line style set on an element reaches the strokes its component drew

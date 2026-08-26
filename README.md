@@ -163,6 +163,10 @@ name rather than vanishing, so a typo is visible on the canvas.
   into lines, so a piece of a curve is still a curve and stays exactly on the
   original. Glyph text cannot be divided, so it rides with the piece that keeps
   the rest of the drawing, and a label stays with the largest piece.
+- A dot is a short dash left round by the cap, so both the cap and a dash
+  length with something in it are load-bearing. The node model carries no
+  linecap, so every `<ellipse>` it renders spells the round cap out the way a
+  `<path>` does — without it a dotted circle draws nothing at all.
 - Exported text is centred with an explicit `dy` rather than
   `dominant-baseline`, which Illustrator ignores.
 - The exported SVG pulls DM Sans via a Google Fonts `@import`, which Illustrator and
