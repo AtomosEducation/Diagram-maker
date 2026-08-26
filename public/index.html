@@ -642,6 +642,16 @@
                 <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">{{ gridExtentTxt }}</span>
               </div>
             </sc-if>
+            <sc-if value="{{ isCutPiece }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
+                <span style="font-size: 12px; color: var(--fg-2);">Line style</span>
+                <div style="display: flex; gap: 5px;">
+                  <sc-for list="{{ dashBtns }}" as="cs" hint-placeholder-count="3">
+                    <button onClick="{{ cs.onPick }}" style="{{ cs.style }}">{{ cs.name }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
             <sc-if value="{{ isPunnett }}" hint-placeholder-val="{{ false }}">
               <div style="display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
                 <div style="display: flex; gap: 8px;">
@@ -1208,6 +1218,213 @@ const hitD = (it) => {
   if (kind === 'polygon') return polyD(p) + ' Z';
   if (kind === 'dim') return polyD([p[0], p[1]]);
   return polyD(routePts(p, it.route));
+};
+
+
+// -- Cutting a component ---------------------------------------------------
+// A component is one baked mark, so before it can be parted it is reduced to
+// the outlines it actually draws: every path and ellipse in its markup, as
+// primitive segments in the component's own coordinates. What comes back is no
+// longer a resistor or a lens, it is the outlines - which is precisely what
+// makes one stroke of it styleable on its own.
+//
+// Curves are cut by de Casteljau rather than sampled into lines, so a piece of
+// a curve is still a curve and stays exactly on the original.
+
+// Absolute commands -> primitive segments, grouped by subpath.
+const cmdsToSubs = (cmds, fill) => {
+  const out = [];
+  let cur = null, px = 0, py = 0, sx = 0, sy = 0;
+  const flush = () => { if (cur && cur.segs.length) out.push(cur); };
+  cmds.forEach(c => {
+    if (c[0] === 'M') {
+      flush();
+      px = sx = c[1]; py = sy = c[2];
+      cur = { segs: [], closed: false, fill };
+      return;
+    }
+    if (!cur) return;
+    if (c[0] === 'Z') {
+      if (Math.hypot(px - sx, py - sy) > 1e-6) cur.segs.push({ k: 'L', p: [px, py, sx, sy] });
+      cur.closed = true; px = sx; py = sy;
+      return;
+    }
+    if (c[0] === 'L') { cur.segs.push({ k: 'L', p: [px, py, c[1], c[2]] }); px = c[1]; py = c[2]; }
+    else if (c[0] === 'Q') { cur.segs.push({ k: 'Q', p: [px, py, c[1], c[2], c[3], c[4]] }); px = c[3]; py = c[4]; }
+    else if (c[0] === 'C') { cur.segs.push({ k: 'C', p: [px, py, c[1], c[2], c[3], c[4], c[5], c[6]] }); px = c[5]; py = c[6]; }
+  });
+  flush();
+  return out;
+};
+
+const segPt = (s, t) => {
+  const p = s.p, u = 1 - t;
+  if (s.k === 'L') return { x: p[0] + (p[2] - p[0]) * t, y: p[1] + (p[3] - p[1]) * t };
+  if (s.k === 'Q') return {
+    x: u * u * p[0] + 2 * u * t * p[2] + t * t * p[4],
+    y: u * u * p[1] + 2 * u * t * p[3] + t * t * p[5] };
+  return {
+    x: u * u * u * p[0] + 3 * u * u * t * p[2] + 3 * u * t * t * p[4] + t * t * t * p[6],
+    y: u * u * u * p[1] + 3 * u * u * t * p[3] + 3 * u * t * t * p[5] + t * t * t * p[7] };
+};
+
+const segSplit = (s, t) => {
+  const p = s.p;
+  const lerp = (ax, ay, bx, by) => [ax + (bx - ax) * t, ay + (by - ay) * t];
+  if (s.k === 'L') {
+    const m = segPt(s, t);
+    return [{ k: 'L', p: [p[0], p[1], m.x, m.y] }, { k: 'L', p: [m.x, m.y, p[2], p[3]] }];
+  }
+  if (s.k === 'Q') {
+    const a = lerp(p[0], p[1], p[2], p[3]), b = lerp(p[2], p[3], p[4], p[5]);
+    const m = lerp(a[0], a[1], b[0], b[1]);
+    return [{ k: 'Q', p: [p[0], p[1], a[0], a[1], m[0], m[1]] },
+            { k: 'Q', p: [m[0], m[1], b[0], b[1], p[4], p[5]] }];
+  }
+  const a = lerp(p[0], p[1], p[2], p[3]), b = lerp(p[2], p[3], p[4], p[5]), c = lerp(p[4], p[5], p[6], p[7]);
+  const d = lerp(a[0], a[1], b[0], b[1]), e = lerp(b[0], b[1], c[0], c[1]);
+  const m = lerp(d[0], d[1], e[0], e[1]);
+  return [{ k: 'C', p: [p[0], p[1], a[0], a[1], d[0], d[1], m[0], m[1]] },
+          { k: 'C', p: [m[0], m[1], e[0], e[1], c[0], c[1], p[6], p[7]] }];
+};
+
+// Nearest point on one segment. Straight runs are solved outright; curves are
+// sampled and then closed in on, which is ample for pointing at one.
+const segNear = (s, q) => {
+  if (s.k === 'L') {
+    const p = s.p, vx = p[2] - p[0], vy = p[3] - p[1], den = vx * vx + vy * vy;
+    const t = den ? Math.max(0, Math.min(1, ((q.x - p[0]) * vx + (q.y - p[1]) * vy) / den)) : 0;
+    const pt = segPt(s, t);
+    return { t, d: Math.hypot(pt.x - q.x, pt.y - q.y) };
+  }
+  const N = 18;
+  let bt = 0, bd = Infinity;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, pt = segPt(s, t), d = Math.hypot(pt.x - q.x, pt.y - q.y);
+    if (d < bd) { bd = d; bt = t; }
+  }
+  let h = 1 / N;
+  for (let r = 0; r < 22; r++) {
+    [Math.max(0, bt - h), Math.min(1, bt + h)].forEach(t => {
+      const pt = segPt(s, t), d = Math.hypot(pt.x - q.x, pt.y - q.y);
+      if (d < bd) { bd = d; bt = t; }
+    });
+    h *= 0.62;
+  }
+  return { t: bt, d: bd };
+};
+
+const subsNear = (subs, q) => {
+  let best = null;
+  subs.forEach((sub, si) => sub.segs.forEach((sg, gi) => {
+    const r = segNear(sg, q);
+    if (!best || r.d < best.d) {
+      const pt = segPt(sg, r.t);
+      best = { d: r.d, si, gi, t: r.t, x: pt.x, y: pt.y };
+    }
+  }));
+  return best;
+};
+
+// One subpath parted at a point: two runs if it was open, one opened run if it
+// was closed - the same rule the drawn shapes follow.
+const subSplit = (sub, gi, t) => {
+  const [a, b] = segSplit(sub.segs[gi], t);
+  const head = sub.segs.slice(0, gi).concat(t > 1e-4 ? [a] : []);
+  const tail = (t < 1 - 1e-4 ? [b] : []).concat(sub.segs.slice(gi + 1));
+  if (sub.closed) {
+    const run = tail.concat(head);
+    return run.length ? [{ segs: run, closed: false, fill: sub.fill }] : [];
+  }
+  return [head, tail].filter(x => x.length).map(x => ({ segs: x, closed: false, fill: sub.fill }));
+};
+
+const subD = (sub) => {
+  if (!sub.segs.length) return '';
+  const F = (v) => +v.toFixed(2);
+  const s0 = sub.segs[0].p;
+  let d = `M${F(s0[0])} ${F(s0[1])}`;
+  sub.segs.forEach(sg => {
+    const p = sg.p;
+    if (sg.k === 'L') d += `L${F(p[2])} ${F(p[3])}`;
+    else if (sg.k === 'Q') d += `Q${F(p[2])} ${F(p[3])} ${F(p[4])} ${F(p[5])}`;
+    else d += `C${F(p[2])} ${F(p[3])} ${F(p[4])} ${F(p[5])} ${F(p[6])} ${F(p[7])}`;
+  });
+  return d + (sub.closed ? 'Z' : '');
+};
+
+// Control points bound a bezier, so this is a shade generous on curves - which
+// only ever leaves a hair of slack around the selection box.
+const subsBox = (subs) => {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  subs.forEach(sub => sub.segs.forEach(sg => {
+    for (let i = 0; i < sg.p.length; i += 2) {
+      x0 = Math.min(x0, sg.p[i]); x1 = Math.max(x1, sg.p[i]);
+      y0 = Math.min(y0, sg.p[i + 1]); y1 = Math.max(y1, sg.p[i + 1]);
+    }
+  }));
+  if (x0 > x1) return { cx: 0, cy: 0, w: 10, h: 10 };
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: Math.max(4, x1 - x0), h: Math.max(4, y1 - y0) };
+};
+const subsShift = (subs, dx, dy) => subs.map(sub => ({
+  ...sub,
+  segs: sub.segs.map(sg => ({ k: sg.k, p: sg.p.map((v, i) => i % 2 ? v + dy : v + dx) }))
+}));
+
+// Markup -> outlines. Glyph text cannot be parted, so it is carried across
+// whole and rides with the piece that keeps the rest of the drawing.
+const nodesToSubs = (nodes) => {
+  const subs = [], text = [];
+  nodes.forEach(n => {
+    if (n.isText) { text.push(n); return; }
+    let d = '';
+    if (n.isPath) d = n.d;
+    else if (n.isEllipse && n.rx && n.ry) {
+      d = `M${n.cx - n.rx} ${n.cy}A${n.rx} ${n.ry} 0 1 0 ${n.cx + n.rx} ${n.cy}`
+        + `A${n.rx} ${n.ry} 0 1 0 ${n.cx - n.rx} ${n.cy}Z`;
+    }
+    if (!d) return;
+    cmdsToSubs(pathAbs(d), !!(n.fill && n.fill !== 'none')).forEach(x => subs.push(x));
+  });
+  return { subs, extra: nodesMarkup(text) };
+};
+const SUB_CACHE = new Map();
+const subsOf = (html) => {
+  let v = SUB_CACHE.get(html);
+  if (!v) {
+    if (SUB_CACHE.size > 200) SUB_CACHE.clear();
+    v = nodesToSubs(nodesFor(html));
+    SUB_CACHE.set(html, v);
+  }
+  return v;
+};
+
+// A component that has been cut becomes this: bare outlines that take the
+// line style and weight controls directly. It is still a component as far as
+// everything else is concerned, so placing, scaling, rotating, the thumbnail
+// strip and export need to know nothing about it.
+const pathComp = (i) => {
+  const box = { w: i.pw || 10, h: i.ph || 10 };
+  return {
+    name: ((IDX[i.key] || {}).name || 'Shape') + ' (cut)',
+    w: box.w, h: box.h,
+    d: (sw) => i.paths.map(p => p.fill
+      ? `<path d="${p.d}" fill="${INK}" stroke="none"/>`
+      : strokeD(p.d, sw, i.dash)).join('') + (i.extra || '')
+  };
+};
+
+// The item's own frame, for turning a canvas point into component coordinates
+// and its outlines back into canvas ones.
+const itemMat = (it) => parseTransform(
+  `translate(${it.x},${it.y}) rotate(${it.rot || 0})`
+  + `${it.flip ? ' scale(-1,1)' : ''} scale(${it.sx == null ? 1 : it.sx},${it.sy == null ? 1 : it.sy})`);
+const toLocal = (it, q) => {
+  const a = -(it.rot || 0) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  const dx = q.x - it.x, dy = q.y - it.y;
+  const rx = dx * ca - dy * sa, ry = dx * sa + dy * ca;
+  return { x: (it.flip ? -rx : rx) / (it.sx == null || !it.sx ? 1 : it.sx),
+    y: ry / (it.sy == null || !it.sy ? 1 : it.sy) };
 };
 
 // -- Cutting drawn geometry ------------------------------------------------
@@ -2185,6 +2402,7 @@ const MISSING_COMP = { id: 'missing', name: 'Missing icon', w: 60, h: 60,
   d: (sw) => P('M-26 -26 H26 V26 H-26 Z M-26 -26 L26 26 M26 -26 L-26 26', sw) };
 const compOf = (i) => {
   if (i.text) return textComp(i);
+  if (i.paths) return pathComp(i);
   const c = IDX[i.key] || {};
   if (c.punnett) return punnettComp(i);
   if (c.grid) return gridComp(i);
@@ -3391,19 +3609,91 @@ class Component extends DCLogic {
   // than in the drawing, so the tool feels the same at every zoom.
   cutTarget(q) {
     let best = null;
+    const take = (t) => { if (t && (!best || t.hit.d < best.hit.d)) best = t; };
     this.state.items.forEach(it => {
-      if (!it.wire) return;
-      const kind = kindOf(it);
-      if (!CUTTABLE[kind]) return;
-      const hit = cutHit(it, kind, q);
-      if (hit && (!best || hit.d < best.hit.d)) best = { it, kind, hit };
+      if (it.wire) {
+        const kind = kindOf(it);
+        if (!CUTTABLE[kind]) return;
+        const hit = cutHit(it, kind, q);
+        if (hit) take({ it, kind, hit });
+        return;
+      }
+      // Text sets no outline anyone could point at, so it is left alone.
+      if (it.text) return;
+      const subs = this.itemSubs(it);
+      if (!subs || !subs.subs.length) return;
+      const h = subsNear(subs.subs, toLocal(it, q));
+      if (!h) return;
+      // The hit is measured in the component's own coordinates; the scale it
+      // is drawn at brings that back to what the pointer sees.
+      const k = Math.sqrt(Math.abs((it.sx == null ? 1 : it.sx) * (it.sy == null ? 1 : it.sy))) || 1;
+      take({ it, kind: 'comp', subs, hit: { ...h, d: h.d * k } });
     });
     return best && best.hit.d <= 12 / this.state.view.z ? best : null;
+  }
+
+  // The outlines a component draws right now, parsed once per distinct markup.
+  itemSubs(it) {
+    const c = compOf(it);
+    if (!c || typeof c.d !== 'function') return null;
+    try {
+      return subsOf(withInk(INK_CANVAS, () => withFont(FONTS[this.fontKey], () => c.d(it.sw, it))));
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // A component parts into the stroke that was clicked - divided in two, or
+  // opened out if it was a closed outline - plus one piece holding everything
+  // else it drew. Each is bare outlines from then on, so a line style applies
+  // to that stroke alone, which is the whole point of cutting one.
+  cutComponent(it, subs, hit) {
+    const parts = subSplit(subs.subs[hit.si], hit.gi, hit.t);
+    if (!parts.length) return;
+    const rest = subs.subs.filter((x, i) => i !== hit.si);
+    const groups = [];
+    if (rest.length || subs.extra) groups.push({ subs: rest, extra: subs.extra });
+    parts.forEach(p => groups.push({ subs: [p], extra: '' }));
+    // One group is not a failed cut: a lone closed outline opens out on the
+    // first click and parts on the second, the way a polygon does.
+    if (!groups.length) return;
+    this.commit(null);
+    this.setState(s2 => {
+      const base = s2.nextId;
+      const m = itemMat(it);
+      // The label belongs with the bulk of the shape, not with whichever piece
+      // happens to come first: cut a corner off a labelled box and the caption
+      // should stay on the box.
+      const areas = groups.map(g => { const b = subsBox(g.subs); return b.w * b.h; });
+      const keeps = areas.indexOf(Math.max.apply(null, areas));
+      const made = groups.map((g, k) => {
+        // Re-centred on its own bounds, with the item moved to match, so the
+        // selection box hugs the piece instead of the shape it came from.
+        const box = subsBox(g.subs);
+        const moved = subsShift(g.subs, -box.cx, -box.cy);
+        const wx = m[0] * box.cx + m[2] * box.cy + m[4];
+        const wy = m[1] * box.cx + m[3] * box.cy + m[5];
+        return {
+          ...it, id: base + k, x: wx, y: wy,
+          paths: moved.map(x => ({ d: subD(x), fill: !!x.fill })),
+          pw: box.w, ph: box.h, extra: g.extra,
+          dash: it.dash || 'solid',
+          label: k === keeps ? it.label : ''
+        };
+      });
+      return {
+        items: s2.items.filter(x => x.id !== it.id).concat(made),
+        nextId: base + made.length,
+        sel: made[made.length - 1].id,
+        cutFirst: null
+      };
+    });
   }
 
   cutClick(q) {
     const t = this.cutTarget(q);
     if (!t) return;
+    if (t.kind === 'comp') { this.cutComponent(t.it, t.subs, t.hit); return; }
     // A circle has no ends, so one cut leaves it whole - it takes two points
     // to lift an arc out of it. Everything else parts at a single click.
     if (t.kind === 'circle') {
@@ -4017,9 +4307,14 @@ class Component extends DCLogic {
       cutPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === CUT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === CUT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === CUT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
       cutHintMsg: st.cutFirst
         ? 'Now click the other end of the arc. The circle parts into two arcs, and each takes its own line style.'
-        : 'Click a drawn line, arc, polyline or polygon to part it there. A circle takes two clicks, one at each end of the arc you want. Palette components cannot be cut.',
+        : 'Click any shape to part it where you clicked. On a component the stroke you click comes away from the rest, and can be cut again. A closed outline — a circle, a box — opens on the first click and parts on the second.',
       // The shape a click would take, and the mark showing where.
-      cutGlow: cutAim ? hitD(cutAim.it) : '',
+      cutGlow: !cutAim ? '' : (cutAim.kind === 'comp'
+        ? (() => {
+            const m = itemMat(cutAim.it);
+            return cutAim.subs.subs.map(x => cmdsToD(mapCmds(pathAbs(subD(x)), m))).join('');
+          })()
+        : hitD(cutAim.it)),
       cutMark: (() => {
         if (st.pick !== CUT_KEY) return '';
         const z = st.view.z, r = 7 / z;
@@ -4027,7 +4322,14 @@ class Component extends DCLogic {
           + `M${(x + r).toFixed(1)} ${(y - r).toFixed(1)}L${(x - r).toFixed(1)} ${(y + r).toFixed(1)}`;
         // The first point of a circle cut stays marked while the second is chosen.
         let d = st.cutFirst ? cross(st.cutFirst.x, st.cutFirst.y) : '';
-        if (cutAim) d += cross(cutAim.hit.x, cutAim.hit.y);
+        if (cutAim) {
+          let p = { x: cutAim.hit.x, y: cutAim.hit.y };
+          if (cutAim.kind === 'comp') {
+            const m = itemMat(cutAim.it);
+            p = { x: m[0] * p.x + m[2] * p.y + m[4], y: m[1] * p.x + m[3] * p.y + m[5] };
+          }
+          d += cross(p.x, p.y);
+        }
         return d;
       })(),
 
@@ -4473,6 +4775,7 @@ class Component extends DCLogic {
       gridHMinus: () => this.patchLive(i => ({ grows: gridN(gridH(i) - 1) })),
       gridHPlus: () => this.patchLive(i => ({ grows: gridN(gridH(i) + 1) })),
       setGridStep: (e) => this.patch({ gstep: parseInt(e.target.value, 10) }),
+      isCutPiece: !!(sel && sel.paths),
       isPunnett: !!(sel && (IDX[sel.key] || {}).punnett),
       punRowsTxt: sel ? punRows(sel) : 2,
       punColsTxt: sel ? punCols(sel) : 2,

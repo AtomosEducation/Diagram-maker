@@ -79,10 +79,11 @@ Then visit <http://localhost:8765/>.
 - Settings popover — grid size (snapping follows at half steps), default line
   width, text size, label size and export margin, remembered between sessions
   along with the theme, grid style, typeface and snap toggles
-- Scissor (`X`) — cut a drawn shape where you click and the halves become
-  separate elements, so one can be dashed while the other stays solid. A line,
-  arc, polyline or polygon parts at a single click; a circle takes two, one at
-  each end of the arc you want out of it
+- Scissor (`X`) — cut anything where you click and the pieces become separate
+  elements, so one can be dashed while the other stays solid. A line, arc,
+  polyline or polygon parts at a single click; a circle takes two, one at each
+  end of the arc you want. On a component the stroke you click comes away from
+  the rest, and any piece can be cut again
 - Select, Text and Dimension tools in the Properties panel, on V, T and D
 - Icons shelf beside those tools — person, car, earth, satellite, the
   right-hand rule fist, thumbs up, eye, tree, ship, sun, moon, aeroplane and
@@ -133,9 +134,13 @@ name rather than vanishing, so a typo is visible on the canvas.
 - Nothing from an uploaded file reaches the live document. It is parsed with
   `DOMParser`, which runs no scripts, and only geometry is carried across —
   the markup that renders is rebuilt from that geometry.
-- The scissor works on drawn geometry — segments, rays, wires, polylines,
-  polygons, arcs and circles. A palette component is one baked mark with no
-  notion of where along itself it might be divided, so it cannot be cut.
+- Cutting a component reduces it to the outlines it draws, so the piece that
+  comes away is bare geometry that takes the line style and weight directly.
+  It is no longer a resistor or a bulb, which is the price of being able to
+  dash one stroke of it. Curves are parted by de Casteljau rather than sampled
+  into lines, so a piece of a curve is still a curve and stays exactly on the
+  original. Glyph text cannot be divided, so it rides with the piece that keeps
+  the rest of the drawing, and a label stays with the largest piece.
 - Exported text is centred with an explicit `dy` rather than
   `dominant-baseline`, which Illustrator ignores.
 - The exported SVG pulls DM Sans via a Google Fonts `@import`, which Illustrator and
