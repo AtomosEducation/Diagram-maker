@@ -2070,7 +2070,12 @@ const eqParse = (toks, pos, stop) => {
     // ^ and _ bind to the atom already emitted, in either order.
     while (p < toks.length && (toks[p].k === '^' || toks[p].k === '_')) {
       const kind = toks[p].k; p++;
-      const r = eqAtom(toks, p);
+      while (p < toks.length && toks[p].k === 'sp') p++;
+      // Half-typed: the mark is there and its argument is not, which is the
+      // state the field is in for every keystroke it takes to write one. The
+      // script stays empty until the next character arrives. Reading a missing
+      // atom's position here is what used to take the whole render down.
+      const r = eqAtom(toks, p) || { node: { t: 'row', kids: [] }, p };
       p = r.p;
       node = node.t === 'script' ? node : { t: 'script', base: node, sup: null, sub: null };
       if (kind === '^') node.sup = r.node; else node.sub = r.node;
@@ -2096,6 +2101,7 @@ const eqParse = (toks, pos, stop) => {
 };
 
 const eqGroup = (toks, p) => {
+  while (p < toks.length && toks[p].k === 'sp') p++;
   if (p < toks.length && toks[p].k === '{') {
     const r = eqParse(toks, p + 1, null);
     return { node: r.row, p: toks[r.p] && toks[r.p].k === '}' ? r.p + 1 : r.p };
@@ -2464,7 +2470,15 @@ const eqBoxFor = (src, fs) => {
   let v = EQ_CACHE.get(k);
   if (!v) {
     if (EQ_CACHE.size > 300) EQ_CACHE.clear();
-    v = eqBox(eqBuild(src), fs, 0, eqCtx());
+    try {
+      v = eqBox(eqBuild(src), fs, 0, eqCtx());
+    } catch (err) {
+      // The field is parsed on every keystroke, so it spends most of its life
+      // holding something half-written. Whatever the layout cannot make sense
+      // of falls back to the source as plain text - visible, and editable back
+      // into shape - rather than taking the canvas down with it.
+      v = eqBox({ t: 'run', s: src, it: false }, fs, 0, eqCtx());
+    }
     EQ_CACHE.set(k, v);
   }
   return v;
