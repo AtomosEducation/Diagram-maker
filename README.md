@@ -60,6 +60,11 @@ Then visit <http://localhost:8765/>.
 - Thumbnail strip of everything on the canvas, so any element can be selected
   from the Properties panel without hunting for it
 - Per-element label, size, rotation, flip and line weight
+- Everything on the canvas carries the same selection box — eight handles to
+  resize and a knob to turn it. A drawn shape has no scale or rotation of its
+  own, so its handles work on the points themselves; its vertex dots stay put
+  for reshaping one corner at a time. A circle or arc keeps its curvature under
+  a corner drag, and Shift holds the proportions on anything else
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
 - Label can sit above or below a component

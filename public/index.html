@@ -3414,6 +3414,69 @@ class Component extends DCLogic {
   // Drag one of the eight resize handles. (hx, hy) is the handle's corner in
   // the item's local frame as -1/0/1; the opposite corner stays pinned, so the
   // component grows away from the side you grab. Shift keeps the aspect ratio.
+  // Sizing and turning a drawn shape means moving its points: there is no
+  // scale or rotation on the item to lean on. Both work from the shape as it
+  // stood when the drag began, so the box does not chase itself while the
+  // bounds change underneath it.
+  wireResize(e, id, hx, hy) {
+    e.stopPropagation();
+    const it = this.state.items.find(i => i.id === id);
+    if (!it) return;
+    const b = wireBounds(it);
+    const W = b.maxX - b.minX, H = b.maxY - b.minY;
+    // The corner opposite the one being dragged stays put.
+    const ax = hx > 0 ? b.minX : hx < 0 ? b.maxX : (b.minX + b.maxX) / 2;
+    const ay = hy > 0 ? b.minY : hy < 0 ? b.maxY : (b.minY + b.maxY) / 2;
+    const pts0 = it.pts.map(p => ({ x: p.x, y: p.y }));
+    // A circle stays a circle and an arc stays circular, so those take one
+    // factor on both axes rather than being squashed into an ellipse.
+    const kind = kindOf(it), even = kind === 'circle' || kind === 'arc';
+    this.commit(null);
+    this.setState({ sel: id, pick: null });
+    const move = (ev) => {
+      const p = this.pt(ev);
+      let fx = 1, fy = 1;
+      // An axis the shape has no extent along cannot be scaled - a level line
+      // has no height to grow from.
+      if (hx && W > 0.5) fx = Math.min(20, Math.max(0.05, Math.abs(p.x - ax) / W));
+      if (hy && H > 0.5) fy = Math.min(20, Math.max(0.05, Math.abs(p.y - ay) / H));
+      if (even || ev.shiftKey) {
+        const f = hx && hy ? Math.max(fx, fy) : (hx ? fx : fy);
+        fx = fy = f;
+      }
+      const pts = pts0.map(q => ({ x: ax + (q.x - ax) * fx, y: ay + (q.y - ay) * fy }));
+      this.setState(s2 => ({ items: s2.items.map(i => i.id === id ? { ...i, pts } : i) }));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
+  wireRotate(e, id) {
+    e.stopPropagation();
+    const it = this.state.items.find(i => i.id === id);
+    if (!it) return;
+    const b = wireBounds(it);
+    const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+    const pts0 = it.pts.map(p => ({ x: p.x, y: p.y }));
+    // The knob starts above the shape, so that is the angle to measure from.
+    const a0 = -Math.PI / 2;
+    this.commit(null);
+    this.setState({ sel: id, pick: null });
+    const move = (ev) => {
+      const p = this.rawPt(ev);
+      let deg = (Math.atan2(p.y - cy, p.x - cx) - a0) * 180 / Math.PI;
+      deg = ev.shiftKey ? Math.round(deg / 15) * 15 : Math.round(deg);
+      const r = deg * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r);
+      const pts = pts0.map(q => {
+        const dx = q.x - cx, dy = q.y - cy;
+        return { x: cx + dx * cs - dy * sn, y: cy + dx * sn + dy * cs };
+      });
+      this.setState(s2 => ({ items: s2.items.map(i => i.id === id ? { ...i, pts } : i) }));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
+
   resize(e, id, hx, hy) {
     e.stopPropagation();
     const it = this.state.items.find(i => i.id === id);
@@ -4600,10 +4663,27 @@ class Component extends DCLogic {
       // zoom so the handles keep a constant on-screen size, and the group
       // carries only translate+rotate (no scale) so they stay square.
       frame: (() => {
-        if (!sel || sel.wire) return null;
-        const c = compOf(sel), z = st.view.z;
-        const hw = c.w * sel.sx / 2, hh = c.h * sel.sy / 2;
-        const pad = 6 / z, hs = 9 / z;
+        if (!sel) return null;
+        const z = st.view.z, hs = 9 / z;
+        let cx, cy, hw, hh, rot, pad, onRot, onSize;
+        if (sel.wire) {
+          // A drawn shape has no scale or rotation of its own - the points are
+          // the whole of it - so the box is taken from where they actually lie
+          // and the handles work on the points themselves. It sits further out
+          // than a component's, to stay clear of the vertex dots on the line.
+          const b = wireBounds(sel);
+          cx = (b.minX + b.maxX) / 2; cy = (b.minY + b.maxY) / 2;
+          hw = Math.max(5, (b.maxX - b.minX) / 2); hh = Math.max(5, (b.maxY - b.minY) / 2);
+          rot = 0; pad = 11 / z;
+          onRot = (e) => this.wireRotate(e, sel.id);
+          onSize = (hx, hy) => (e) => this.wireResize(e, sel.id, hx, hy);
+        } else {
+          const c = compOf(sel);
+          cx = sel.x; cy = sel.y; rot = sel.rot;
+          hw = c.w * sel.sx / 2; hh = c.h * sel.sy / 2; pad = 6 / z;
+          onRot = (e) => this.rotate(e, sel.id);
+          onSize = (hx, hy) => (e) => this.resize(e, sel.id, hx, hy);
+        }
         const bx = -hw - pad, by = -hh - pad;
         const SPOTS = [
           [-1, -1, 'nwse-resize'], [0, -1, 'ns-resize'], [1, -1, 'nesw-resize'],
@@ -4611,13 +4691,13 @@ class Component extends DCLogic {
           [-1, 1, 'nesw-resize'], [0, 1, 'ns-resize'], [1, 1, 'nwse-resize']
         ];
         return {
-          transform: `translate(${sel.x},${sel.y}) rotate(${sel.rot})`,
+          transform: `translate(${cx},${cy}) rotate(${rot})`,
           x: bx, y: by, w: 2 * (hw + pad), h: 2 * (hh + pad),
           topY: by, rotY: by - 20 / z, hr: 5 / z, hs,
-          onRotate: (e) => this.rotate(e, sel.id),
+          onRotate: onRot,
           handles: SPOTS.map(([hx, hy, cursor]) => ({
             x: hx * (hw + pad) - hs / 2, y: hy * (hh + pad) - hs / 2, cursor,
-            onDown: (e) => this.resize(e, sel.id, hx, hy)
+            onDown: onSize(hx, hy)
           }))
         };
       })(),
