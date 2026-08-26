@@ -336,6 +336,11 @@
           </sc-if>
           <sc-if value="{{ labelBar }}" hint-placeholder-val="{{ false }}">
             <div style="{{ labelBarStyle }}">
+              <sc-if value="{{ hasLabel }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ clearLabel }}" title="Clear the label" style="{{ clearLabelStyle }}" style-hover="background: var(--danger-bg); color: var(--danger);">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="display: block;"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+                </button>
+              </sc-if>
               <input ref="{{ labelBarRef }}" value="{{ labelBarValue }}" onChange="{{ setLabelBar }}" placeholder="{{ labelBarHint }}" style="width: 132px; height: 24px; padding: 0 7px; font-family: inherit; font-size: 12px; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;" style-focus="border-color: var(--accent-fg);" />
               <sc-if value="{{ labelBarPos }}" hint-placeholder-val="{{ false }}">
                 <button onClick="{{ labelUp }}" title="Put the label above" style="{{ labelUpStyle }}" style-hover="background: var(--ctl-hover);">
@@ -5197,6 +5202,13 @@ class Component extends DCLogic {
       labelBarHint: 'Label   _sub  ^sup',
       labelBarRef: this.attachBarLabel,
       setLabelBar: (e) => this.patch({ label: e.target.value }),
+      // Only offered when there is something to clear, so the bar does not
+      // carry a dead button around on every unlabelled element.
+      hasLabel: !!(sel && sel.label),
+      clearLabel: () => this.patch({ label: '' }),
+      clearLabelStyle: 'display: flex; align-items: center; justify-content: center; width: 22px;'
+        + ' height: 24px; padding: 0; color: var(--fg-3); background: transparent; border: none;'
+        + ' border-radius: 5px; cursor: pointer;',
       // A wire carries its label at its midpoint with no side to choose, so the
       // arrows only appear where there is a choice to make.
       labelBarPos: !!sel && (!sel.wire || kindOf(sel) === 'dim'),
