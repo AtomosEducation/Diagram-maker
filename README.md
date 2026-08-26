@@ -67,6 +67,10 @@ Then visit <http://localhost:8765/>.
   double-clicking any label reopens it
 - Free-standing text placed anywhere on the canvas, rotatable to any angle,
   with vector bar, arrow, hat or dots drawn over it
+- Equation tool (`Q`) — mathematical notation typeset on the canvas from a
+  LaTeX subset: fractions, roots, scripts, sums and integrals with limits,
+  Greek, accents and brackets that grow with what they hold. A chip row inserts
+  the common fragments, and double-clicking an equation edits it in place
 - Dimension tool — click two points to measure between them, with arrow, dot
   or bar ends and the label above or below the line
 - Selecting anything floats a small bar over its box — flip, rotate 90°,
@@ -89,8 +93,34 @@ Then visit <http://localhost:8765/>.
 - Export the artwork as SVG, or copy it to the clipboard to paste straight into
   a vector editor
 
+## Equations
+
+Written as LaTeX and laid out into the same primitives as everything else —
+text runs for glyphs, drawn paths for fraction rules, radicals and brackets —
+so an exported equation needs no maths font at the other end.
+
+| | |
+| --- | --- |
+| Scripts | `x^2`, `a_i`, `x_1^2`, `\sum_{i=1}^{n}` |
+| Fractions | `\frac{a}{b}`, nested |
+| Roots | `\sqrt{x}`, `\sqrt[3]{x}` |
+| Large operators | `\sum \prod \int \oint \lim` — limits set above and below, or on the shoulder for integrals |
+| Accents | `\vec{v} \bar{x} \hat{n} \dot{x} \ddot{x} \tilde{a}` |
+| Brackets | `\left( … \right)`, also `[ ] \| \{ \}`, grown to the content |
+| Upright | `\text{…}`, `\mathrm{…}`, and function names like `\sin \log \ln \max` |
+| Greek | `\alpha` … `\omega`, `\Gamma` … `\Omega` |
+| Symbols | `\times \div \pm \cdot \le \ge \ne \approx \equiv \propto \infty \partial \nabla \to \rightleftharpoons \therefore \degree` and more |
+| Spacing | `\,` `\:` `\;` `\quad` `\qquad` |
+
+Single Latin letters are set in italic as variables; digits, operators and
+anything inside `\text{}` stay upright. An unrecognised command prints its own
+name rather than vanishing, so a typo is visible on the canvas.
+
 ## Notes
 
+- Equation glyph runs are positioned by their measured ink extents, not a
+  nominal em box — stacking a fraction off a flat constant leaves digits and
+  letters colliding, since the two sit at quite different heights.
 - Uploaded SVGs are redrawn in the diagram ink rather than their own colours,
   which is what keeps them themed, weight-adjustable and consistent in a
   monochrome print export. Fills are preserved as fills; a white fill under a

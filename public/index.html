@@ -268,7 +268,7 @@
                   <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                 </sc-if>
                 <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                  <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                 </sc-if>
               </sc-for>
             </svg>
@@ -350,7 +350,7 @@
                     <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                    <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                    <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
                 </sc-for>
               </g>
@@ -378,7 +378,7 @@
                     <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                   </sc-if>
                   <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                    <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                    <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                   </sc-if>
                 </sc-for>
               </g>
@@ -446,6 +446,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M4 7V5h16v2M12 5v14M9 19h6"></path></svg>
             {{ textPanelLabel }}
           </button>
+          <button onClick="{{ addEq }}" title="Set a mathematical equation on the canvas (Q)" style="{{ eqPanelStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M5 7h7M8.5 4v6M4 17h9M16 6l5 5M21 6l-5 5M16 16.5h5M16 20h5"></path></svg>
+            {{ eqPanelLabel }}
+          </button>
           <button onClick="{{ addDim }}" title="Measure between two points on the canvas (D)" style="{{ dimPanelStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M3 12h18M3 12l4-3M3 12l4 3M21 12l-4-3M21 12l-4 3"></path></svg>
             {{ dimPanelLabel }}
@@ -512,7 +516,7 @@
                         <ellipse cx="{{ n.cx }}" cy="{{ n.cy }}" rx="{{ n.rx }}" ry="{{ n.ry }}" fill="{{ n.fill }}" stroke="{{ n.stroke }}" stroke-width="{{ n.sw }}" stroke-dasharray="{{ n.dash }}"></ellipse>
                       </sc-if>
                       <sc-if value="{{ n.isText }}" hint-placeholder-val="{{ false }}">
-                        <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
+                        <text x="{{ n.x }}" y="{{ n.y }}" dy="{{ n.dy }}" transform="{{ n.tr }}" text-anchor="middle" font-size="{{ n.fs }}" font-family="{{ n.ff }}" font-style="{{ n.fst }}" fill="{{ n.fill }}" stroke="none">{{ n.t }}</text>
                       </sc-if>
                     </sc-for>
                   </svg>
@@ -526,8 +530,18 @@
             <!-- Not a <label>: a click on a character chip inside one would be
                  forwarded to the input and wipe the caret we just read. -->
             <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">
-              <span style="font-size: 12px; color: var(--fg-2);">Label</span>
-              <input ref="{{ labelRef }}" value="{{ pLabel }}" onChange="{{ setLabel }}" placeholder="e.g. R₁ = 10 Ω" style="height: 30px; padding: 0 10px; font-family: inherit; font-size: 12.5px; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;" style-focus="border-color: var(--accent-fg);" />
+              <span style="font-size: 12px; color: var(--fg-2);">{{ labelHeading }}</span>
+              <input ref="{{ labelRef }}" value="{{ pLabel }}" onChange="{{ setLabel }}" placeholder="{{ labelPlaceholder }}" style="{{ labelInputStyle }}" style-focus="border-color: var(--accent-fg);" />
+              <sc-if value="{{ isEq }}" hint-placeholder-val="{{ false }}">
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    <sc-for list="{{ eqChips }}" as="ec" hint-placeholder-count="28">
+                      <button onClick="{{ ec.onPick }}" title="{{ ec.title }}" style="{{ ec.style }}" style-hover="background: var(--ctl-hover);">{{ ec.t }}</button>
+                    </sc-for>
+                  </div>
+                  <span style="font-size: 11px; color: var(--fg-3); line-height: 1.5;">Written as LaTeX. Double-click the equation on the canvas to edit it there.</span>
+                </div>
+              </sc-if>
               <sc-if value="{{ showDeco }}" hint-placeholder-val="{{ false }}">
                 <div style="display: flex; flex-direction: column; gap: 7px;">
                   <span style="font-size: 11.5px; color: var(--fg-3);">Above the text</span>
@@ -934,7 +948,7 @@ const toNodes = (html, def) => {
     // <span class="sc-interp">, and a span inside an SVG <text> is created in
     // the SVG namespace, so it paints nothing. An array is passed through as
     // fragment children instead, which yields a real text node.
-    else if (el.tagName === 'text') out.push({ ...common, isText: true, x: num('x'), y: num('y'), dy: num('dy'), fs: num('font-size') || 14, ff: g('font-family') || FONTS.sans, t: [el.textContent] });
+    else if (el.tagName === 'text') out.push({ ...common, isText: true, x: num('x'), y: num('y'), dy: num('dy'), fs: num('font-size') || 14, ff: g('font-family') || FONTS.sans, fst: g('font-style') || 'normal', t: [el.textContent] });
   }
   return out;
 };
@@ -995,7 +1009,7 @@ const nodesMarkup = (nodes) => nodes.map(n => {
   const stroke = n.stroke === 'none' ? ' stroke="none"' : ` stroke="${n.stroke}" stroke-width="${n.sw}"${dash}`;
   if (n.isPath) return `<path d="${n.d}" fill="${n.fill}"${stroke}${n.stroke === 'none' ? '' : ' stroke-linecap="round" stroke-linejoin="round"'}/>`;
   if (n.isEllipse) return `<ellipse cx="${n.cx}" cy="${n.cy}" rx="${n.rx}" ry="${n.ry}" fill="${n.fill}"${stroke}/>`;
-  if (n.isText) return `<text x="${n.x}" y="${n.y}" dy="${(+(n.dy || 0)).toFixed(2)}"${n.tr ? ` transform="${n.tr}"` : ''} text-anchor="middle" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}" fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
+  if (n.isText) return `<text x="${n.x}" y="${n.y}" dy="${(+(n.dy || 0)).toFixed(2)}"${n.tr ? ` transform="${n.tr}"` : ''} text-anchor="middle" font-size="${+n.fs.toFixed(2)}" font-family="${n.ff}"${n.fst && n.fst !== 'normal' ? ` font-style="${n.fst}"` : ''} fill="${n.fill}" stroke="none">${ESC(n.t[0])}</text>`;
   return '';
 }).join('');
 
@@ -1391,9 +1405,13 @@ const decoHtml = (label, fs, deco) => {
   if (deco === 'ddot') { const d = Math.max(2, fs * 0.16); return DOT(-d, y, r) + DOT(d, y, r); }
   return '';
 };
-const textHtml = (i) => TX(0, 0, ESC(textLabel(i)), i.fs) + decoHtml(textLabel(i), i.fs, i.deco);
+const textHtml = (i) => i.eq ? eqHtml(i) : TX(0, 0, ESC(textLabel(i)), i.fs) + decoHtml(textLabel(i), i.fs, i.deco);
 
 const textComp = (i) => {
+  // An equation is a text item that lays itself out, so everything a text
+  // item already does - rotation, live editing, the thumbnail strip - is
+  // inherited rather than rebuilt.
+  if (i.eq) return eqComp(i);
   const s = textLabel(i);
   // A decoration sits above the glyphs, so the box has to grow to keep the
   // export from cropping it off.
@@ -1445,6 +1463,542 @@ const punnettComp = (i) => ({
 // rather than by a per-character guess: 'TTYY' and 'llll' are not the same
 // width. Falls back to the estimate used elsewhere if no canvas is available.
 let _measCtx = null;
+// Ink extents as well as advance width. Stacking a fraction or a script off a
+// nominal em box leaves digits and letters colliding, because the two sit at
+// completely different heights.
+const textMetrics = (txt, fs, it) => {
+  try {
+    if (!_measCtx) _measCtx = document.createElement('canvas').getContext('2d');
+    _measCtx.font = `${it ? 'italic ' : ''}${fs}px ${FONT}`;
+    const m = _measCtx.measureText(String(txt));
+    const a = m.actualBoundingBoxAscent, d = m.actualBoundingBoxDescent;
+    return { w: m.width,
+      a: (typeof a === 'number' && isFinite(a)) ? a : fs * 0.72,
+      d: (typeof d === 'number' && isFinite(d)) ? d : fs * 0.2 };
+  } catch (err) {
+    return { w: String(txt).length * fs * 0.56, a: fs * 0.72, d: fs * 0.2 };
+  }
+};
+
+// ── Mathematical notation ─────────────────────────────────────────────────
+// A LaTeX-shaped subset laid out into the same primitives as everything else:
+// text runs for glyphs, paths for fraction bars and radicals. Nothing here
+// depends on a maths font - the rules, hooks and grown delimiters are drawn -
+// so an exported equation survives a machine that has never heard of one.
+//
+// Runs are emitted centred on their own measured advance width rather than
+// left-anchored, because the node model renders every <text> with
+// text-anchor="middle". Same result, no change to the model.
+
+const EQ_SYM = {
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε',
+  zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'ϑ', iota: 'ι', kappa: 'κ',
+  lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ',
+  tau: 'τ', upsilon: 'υ', phi: 'φ', varphi: 'ϕ', chi: 'χ', psi: 'ψ', omega: 'ω',
+  Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π',
+  Sigma: 'Σ', Upsilon: 'Υ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
+  times: '×', div: '÷', pm: '±', mp: '∓', cdot: '·', ast: '∗', star: '⋆',
+  le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠', approx: '≈',
+  equiv: '≡', sim: '∼', propto: '∝', infty: '∞', partial: '∂', nabla: '∇',
+  therefore: '∴', because: '∵', angle: '∠', perp: '⊥', parallel: '∥',
+  to: '→', rightarrow: '→', longrightarrow: '⟶', leftarrow: '←',
+  leftrightarrow: '↔', Rightarrow: '⇒', Leftarrow: '⇐', Leftrightarrow: '⇔',
+  rightleftharpoons: '⇌', uparrow: '↑', downarrow: '↓',
+  degree: '°', circ: '∘', prime: '′', dots: '…', cdots: '⋯', ldots: '…',
+  in: '∈', notin: '∉', subset: '⊂', supset: '⊃', cup: '∪', cap: '∩',
+  forall: '∀', exists: '∃', emptyset: '∅', hbar: 'ℏ', ell: 'ℓ', Re: 'ℜ', Im: 'ℑ',
+  neg: '¬', wedge: '∧', vee: '∨', oplus: '⊕', otimes: '⊗',
+  surd: '√', triangle: '△', square: '□', bullet: '•', dagger: '†'
+};
+const EQ_BIG = { sum: '∑', prod: '∏', coprod: '∐', int: '∫', iint: '∬', oint: '∮', bigcup: '⋃', bigcap: '⋂' };
+// Limits ride above and below these; an integral takes them as scripts, the
+// way it is set in print.
+const EQ_OVER = { sum: 1, prod: 1, coprod: 1, bigcup: 1, bigcap: 1, lim: 1 };
+const EQ_FUNCS = ['arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh', 'sin', 'cos', 'tan',
+  'cosec', 'csc', 'sec', 'cot', 'log', 'ln', 'lg', 'exp', 'det', 'gcd', 'lcm',
+  'max', 'min', 'sup', 'inf', 'lim', 'deg', 'dim', 'ker', 'arg', 'mod'];
+const EQ_ACC = { vec: 'vec', bar: 'bar', overline: 'bar', hat: 'hat', widehat: 'hat',
+  dot: 'dot', ddot: 'ddot', tilde: 'tilde' };
+const EQ_SPACE = { ',': 0.17, ':': 0.22, ';': 0.28, ' ': 0.33, quad: 1, qquad: 2, '!': -0.17 };
+const EQ_OPEN = { '(': 1, '[': 1, '\\{': 1, '|': 1, '.': 1, '\\|': 1, '\\langle': 1 };
+
+// ── Tokens ────────────────────────────────────────────────────────────────
+const eqTokens = (src) => {
+  const out = [];
+  const s = String(src);
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '\\') {
+      const m = /^\\([A-Za-z]+|.)/.exec(s.slice(i));
+      if (!m) { i++; continue; }
+      out.push({ k: 'cmd', v: m[1] });
+      i += m[0].length;
+      continue;
+    }
+    if (c === '{' || c === '}' || c === '^' || c === '_') { out.push({ k: c }); i++; continue; }
+    if (/\s/.test(c)) { out.push({ k: 'sp' }); i++; continue; }
+    // A number keeps its digits together so 3.14 is one upright run.
+    const num = /^\d+(?:\.\d+)?/.exec(s.slice(i));
+    if (num) { out.push({ k: 'num', v: num[0] }); i += num[0].length; continue; }
+    out.push({ k: 'ch', v: c }); i++;
+  }
+  return out;
+};
+
+// ── Parse ─────────────────────────────────────────────────────────────────
+// Returns a row of nodes. `stop` ends a group; scripts attach to whatever
+// atom precedes them.
+const eqParse = (toks, pos, stop) => {
+  const row = [];
+  let p = pos;
+  const attach = (node) => {
+    // ^ and _ bind to the atom already emitted, in either order.
+    while (p < toks.length && (toks[p].k === '^' || toks[p].k === '_')) {
+      const kind = toks[p].k; p++;
+      const r = eqAtom(toks, p);
+      p = r.p;
+      node = node.t === 'script' ? node : { t: 'script', base: node, sup: null, sub: null };
+      if (kind === '^') node.sup = r.node; else node.sub = r.node;
+    }
+    return node;
+  };
+  while (p < toks.length) {
+    const t = toks[p];
+    if (stop && t.k === stop) break;
+    if (t.k === '}') break;
+    if (t.k === 'sp') { p++; continue; }
+    if (t.k === '^' || t.k === '_') {
+      // A script with nothing before it hangs off an empty box.
+      row.push(attach({ t: 'row', kids: [] }));
+      continue;
+    }
+    const r = eqAtom(toks, p);
+    if (!r) { p++; continue; }
+    p = r.p;
+    row.push(attach(r.node));
+  }
+  return { row: { t: 'row', kids: row }, p };
+};
+
+const eqGroup = (toks, p) => {
+  if (p < toks.length && toks[p].k === '{') {
+    const r = eqParse(toks, p + 1, null);
+    return { node: r.row, p: toks[r.p] && toks[r.p].k === '}' ? r.p + 1 : r.p };
+  }
+  const r = eqAtom(toks, p);
+  return r || { node: { t: 'row', kids: [] }, p: p + 1 };
+};
+
+const eqAtom = (toks, p) => {
+  const t = toks[p];
+  if (!t) return null;
+  if (t.k === '{') return eqGroup(toks, p);
+  if (t.k === 'num') return { node: { t: 'run', s: t.v, it: false }, p: p + 1 };
+  if (t.k === 'ch') {
+    // A lone Latin letter is a variable and is set in italic; everything else
+    // - digits, operators, punctuation - stays upright.
+    const it = /[A-Za-z]/.test(t.v);
+    return { node: { t: 'run', s: t.v, it }, p: p + 1 };
+  }
+  if (t.k !== 'cmd') return null;
+  const v = t.v;
+  if (v === 'frac' || v === 'dfrac' || v === 'tfrac') {
+    const a = eqGroup(toks, p + 1), b = eqGroup(toks, a.p);
+    return { node: { t: 'frac', num: a.node, den: b.node }, p: b.p };
+  }
+  if (v === 'sqrt') {
+    let idx = null, q = p + 1;
+    if (toks[q] && toks[q].k === 'ch' && toks[q].v === '[') {
+      // Scan to the matching ']', since brackets are plain characters here.
+      let depth = 0, end = q + 1;
+      while (end < toks.length) {
+        const k = toks[end];
+        if (k.k === 'ch' && k.v === '[') depth++;
+        else if (k.k === 'ch' && k.v === ']') { if (!depth) break; depth--; }
+        end++;
+      }
+      idx = eqParse(toks.slice(q + 1, end), 0, null).row;
+      q = end + 1;
+    }
+    const a = eqGroup(toks, q);
+    return { node: { t: 'sqrt', arg: a.node, idx }, p: a.p };
+  }
+  if (EQ_ACC[v]) {
+    const a = eqGroup(toks, p + 1);
+    return { node: { t: 'acc', kind: EQ_ACC[v], body: a.node }, p: a.p };
+  }
+  if (v === 'text' || v === 'mathrm' || v === 'mathbf' || v === 'operatorname') {
+    const a = eqGroup(toks, p + 1);
+    return { node: { t: 'upright', body: a.node }, p: a.p };
+  }
+  if (v === 'left' || v === 'right') {
+    // The delimiter itself is the next token; \left...\right is resolved in
+    // eqParseDelims after the flat pass.
+    const d = toks[p + 1];
+    let s = '';
+    if (d) s = d.k === 'cmd' ? '\\' + d.v : (d.v || '');
+    return { node: { t: v === 'left' ? 'open' : 'close', s }, p: p + 2 };
+  }
+  if (EQ_SPACE[v] != null) return { node: { t: 'space', em: EQ_SPACE[v] }, p: p + 1 };
+  if (EQ_BIG[v]) return { node: { t: 'big', s: EQ_BIG[v], over: !!EQ_OVER[v] }, p: p + 1 };
+  if (v === 'lim') return { node: { t: 'bigtext', s: 'lim', over: true }, p: p + 1 };
+  if (EQ_FUNCS.indexOf(v) >= 0) return { node: { t: 'run', s: v, it: false, fn: true }, p: p + 1 };
+  if (EQ_SYM[v]) return { node: { t: 'run', s: EQ_SYM[v], it: false }, p: p + 1 };
+  if (v === '\\') return { node: { t: 'space', em: 0 }, p: p + 1 };
+  // Unknown command: show its name rather than swallowing it, so a typo is
+  // visible on the canvas instead of silently vanishing.
+  return { node: { t: 'run', s: v, it: false }, p: p + 1 };
+};
+
+// Fold \left … \right into a single delimited node.
+const eqFold = (node) => {
+  if (!node || typeof node !== 'object') return node;
+  if (node.t === 'row') {
+    const out = [];
+    const kids = node.kids.map(eqFold);
+    // A script written on the closing delimiter was attached during the
+    // parse, so the closer is now wrapped in a script node. Match through it,
+    // or the group never closes and the bracket is lost.
+    const asClose = (k) => k.t === 'close' ? k : (k.t === 'script' && k.base && k.base.t === 'close' ? k.base : null);
+    for (let i = 0; i < kids.length; i++) {
+      const k = kids[i];
+      if (k.t === 'open') {
+        let depth = 0, j = i + 1;
+        for (; j < kids.length; j++) {
+          if (kids[j].t === 'open') depth++;
+          else if (asClose(kids[j])) { if (!depth) break; depth--; }
+        }
+        const end = j < kids.length ? kids[j] : null;
+        const closer = end ? asClose(end) : null;
+        const body = { t: 'row', kids: kids.slice(i + 1, j) };
+        const delim = { t: 'delim', open: k.s, close: closer ? closer.s : '.', body: eqFold(body) };
+        // The script rides the whole bracketed group, which is what it means.
+        out.push(end && end.t === 'script' ? { ...end, base: delim } : delim);
+        i = j;
+        continue;
+      }
+      out.push(k);
+    }
+    return { t: 'row', kids: out };
+  }
+  ['num', 'den', 'arg', 'idx', 'base', 'sup', 'sub', 'body'].forEach(f => {
+    if (node[f]) node[f] = eqFold(node[f]);
+  });
+  return node;
+};
+
+const eqBuild = (src) => eqFold(eqParse(eqTokens(src), 0, null).row);
+
+// ── Layout ────────────────────────────────────────────────────────────────
+// Every box reports width, ascent and descent about its own baseline, plus a
+// draw(x, y) that emits markup with (x, y) at its left edge on that baseline.
+const EQ_AXIS = 0.26;   // height of the fraction bar above the baseline, in em
+const EQ_ASC = 0.74;
+const EQ_DESC = 0.24;
+const EQ_RULE = 0.055;  // fraction bar and radical rule thickness
+
+const eqScriptFs = (fs, lvl) => lvl === 0 ? fs : lvl === 1 ? fs * 0.72 : fs * 0.58;
+
+const eqBox = (node, fs, lvl, ctx) => {
+  const M = (s, size) => ctx.measure(s, size);
+  const F = (v) => +v.toFixed(2);
+  const empty = { w: 0, a: fs * EQ_ASC, d: fs * EQ_DESC, draw: () => '' };
+  if (!node) return empty;
+
+  if (node.t === 'row') {
+    const kids = node.kids.map(k => eqBox(k, fs, lvl, ctx));
+    // A thin space around binary operators and relations, as in print.
+    const gaps = node.kids.map((k, i) => {
+      if (i === 0) return 0;
+      const cur = k, prev = node.kids[i - 1];
+      const isOp = (n) => n && n.t === 'run' && !n.fn && /^[+\-=×÷±∓·<>≤≥≠≈≡∼∝→←↔⇒⇐⇔⇌∈∉⊂⊃∪∩∧∨⊕⊗]$/.test(n.s);
+      if (isOp(cur) || isOp(prev)) return fs * 0.19;
+      if (prev.t === 'run' && prev.fn) return fs * 0.12;
+      return 0;
+    });
+    let w = 0, a = 0, d = 0;
+    kids.forEach((b, i) => { w += gaps[i] + b.w; a = Math.max(a, b.a); d = Math.max(d, b.d); });
+    if (!kids.length) { a = fs * EQ_ASC * 0.4; d = 0; }
+    return { w, a, d, draw: (x, y) => {
+      let cx = x, out = '';
+      kids.forEach((b, i) => { cx += gaps[i]; out += b.draw(cx, y); cx += b.w; });
+      return out;
+    } };
+  }
+
+  if (node.t === 'space') return { w: fs * node.em, a: 0, d: 0, draw: () => '' };
+
+  if (node.t === 'run' || node.t === 'bigtext') {
+    const s = node.s, it = !!node.it;
+    // Real ink extents, not a nominal em box: stacking a fraction or a script
+    // off a flat constant leaves digits and letters colliding, because the two
+    // sit at completely different heights.
+    const m = ctx.metrics(s, fs, it);
+    const w = m.w + (it ? fs * 0.02 : 0);
+    return { w, a: Math.max(m.a, fs * 0.06), d: Math.max(m.d, 0),
+      draw: (x, y) => ctx.text(x + w / 2, y, s, fs, it) };
+  }
+
+  if (node.t === 'upright') {
+    const inner = eqBox(eqUpright(node.body), fs, lvl, ctx);
+    return inner;
+  }
+
+  if (node.t === 'big') {
+    // A big operator is centred on the maths axis, so a sum and the fraction
+    // bar beside it line up rather than each sitting on its own baseline.
+    const bf = fs * 1.5;
+    const m = ctx.metrics(node.s, bf, false);
+    const axis = fs * EQ_AXIS;
+    const half = (m.a + m.d) / 2, shift = (m.a - m.d) / 2;
+    return { w: m.w, a: axis + half, d: half - axis,
+      draw: (x, y) => ctx.text(x + m.w / 2, y - axis + shift, node.s, bf, false) };
+  }
+
+  if (node.t === 'frac') {
+    // Full size at the top level, a shade smaller once nested, which is what
+    // keeps a fraction inside a fraction from swamping the line.
+    const inner = lvl === 0 ? fs : fs * 0.88;
+    const n = eqBox(node.num, inner, lvl, ctx);
+    const dn = eqBox(node.den, inner, lvl, ctx);
+    const t = Math.max(0.8, fs * EQ_RULE);
+    const pad = fs * 0.3;
+    const w = Math.max(n.w, dn.w) + pad;
+    const axis = fs * EQ_AXIS;
+    const gap = fs * 0.14;
+    // Each part is pushed clear of the rule by its own ink, so 1/2 sits tight
+    // while (n+1)/2 gets the room its parentheses need.
+    const nDrop = axis + t / 2 + gap + n.d;        // numerator baseline, above the axis
+    const dRise = -axis + t / 2 + gap + dn.a;      // denominator baseline, below it
+    const a = nDrop + n.a, d = dRise + dn.d;
+    return { w, a, d, draw: (x, y) => {
+      const nx = x + (w - n.w) / 2, dx = x + (w - dn.w) / 2;
+      return n.draw(nx, y - nDrop) + dn.draw(dx, y + dRise)
+        + ctx.rule(x + pad * 0.15, y - axis, w - pad * 0.3, t);
+    } };
+  }
+
+  if (node.t === 'sqrt') {
+    const b = eqBox(node.arg, fs, lvl, ctx);
+    const t = Math.max(0.8, fs * EQ_RULE);
+    const pad = fs * 0.14;
+    const gapTop = fs * 0.16;
+    const hookW = fs * 0.55;
+    const a = b.a + gapTop + t + pad, d = b.d;
+    const idx = node.idx ? eqBox(node.idx, eqScriptFs(fs, lvl + 2), lvl + 2, ctx) : null;
+    const lead = idx ? Math.max(hookW * 0.6, idx.w) : 0;
+    const w = lead + hookW + b.w + pad * 2;
+    return { w, a, d, draw: (x, y) => {
+      const x0 = x + lead;
+      const top = y - a + pad * 0.4, bot = y + d;
+      const mid = (top + bot) / 2;
+      // Hook, rising stroke, then the rule across the argument.
+      const p = `M${F(x0)} ${F(mid + (bot - mid) * 0.42)}`
+        + `L${F(x0 + hookW * 0.28)} ${F(mid + (bot - mid) * 0.62)}`
+        + `L${F(x0 + hookW * 0.62)} ${F(bot)}`
+        + `L${F(x0 + hookW)} ${F(top)}`
+        + `H${F(x + w - pad * 0.4)}`;
+      return ctx.path(p, t)
+        + (idx ? idx.draw(x, y - b.a * 0.55 - gapTop) : '')
+        + b.draw(x0 + hookW + pad, y);
+    } };
+  }
+
+  if (node.t === 'acc') {
+    const b = eqBox(node.body, fs, lvl, ctx);
+    const t = Math.max(0.9, fs * 0.07);
+    const gap = fs * 0.1;
+    const yTop = -b.a - gap;
+    const k = node.kind;
+    const extra = k === 'dot' || k === 'ddot' ? fs * 0.12 : fs * 0.2;
+    const corr = eqIsItalic(node.body) ? fs * 0.08 : 0;
+    return { w: b.w, a: b.a + gap + extra, d: b.d, draw: (x, y) => {
+      const cx = x + b.w / 2 + corr, top = y + yTop;
+      const half = Math.max(fs * 0.16, b.w / 2 - fs * 0.02);
+      let m = '';
+      if (k === 'bar') m = ctx.path(`M${F(cx - half)} ${F(top)}H${F(cx + half)}`, t);
+      else if (k === 'vec') m = ctx.path(`M${F(cx - half)} ${F(top)}H${F(cx + half)}`, t)
+        + ctx.path(`M${F(cx + half - fs * 0.16)} ${F(top - fs * 0.11)}L${F(cx + half)} ${F(top)}L${F(cx + half - fs * 0.16)} ${F(top + fs * 0.11)}`, t);
+      else if (k === 'hat') { const q = Math.min(half, fs * 0.22);
+        m = ctx.path(`M${F(cx - q)} ${F(top + q * 0.8)}L${F(cx)} ${F(top - q * 0.2)}L${F(cx + q)} ${F(top + q * 0.8)}`, t); }
+      else if (k === 'tilde') { const q = Math.min(half, fs * 0.24);
+        m = ctx.path(`M${F(cx - q)} ${F(top + q * 0.3)}Q${F(cx - q * 0.4)} ${F(top - q * 0.5)} ${F(cx)} ${F(top + q * 0.1)}Q${F(cx + q * 0.4)} ${F(top + q * 0.7)} ${F(cx + q)} ${F(top - q * 0.1)}`, t); }
+      else if (k === 'dot') m = ctx.dot(cx, top, Math.max(0.9, fs * 0.06));
+      else if (k === 'ddot') { const q = fs * 0.13;
+        m = ctx.dot(cx - q, top, Math.max(0.9, fs * 0.06)) + ctx.dot(cx + q, top, Math.max(0.9, fs * 0.06)); }
+      return b.draw(x, y) + m;
+    } };
+  }
+
+  if (node.t === 'delim') {
+    const b = eqBox(node.body, fs, lvl, ctx);
+    const pad = fs * 0.1;
+    const half = Math.max(b.a, b.d) + fs * 0.1;
+    const dw = (s) => s === '.' ? 0 : Math.max(fs * 0.24, half * 0.3);
+    const lw = dw(node.open), rw = dw(node.close);
+    const a = half + fs * 0.02, d = half - fs * 0.06;
+    return { w: lw + b.w + rw + pad * 2, a: Math.max(b.a, a), d: Math.max(b.d, d),
+      draw: (x, y) => ctx.delim(node.open, x, y, lw, half, fs)
+        + b.draw(x + lw + pad, y)
+        + ctx.delim(node.close, x + lw + pad * 2 + b.w, y, rw, half, fs, true) };
+  }
+
+  if (node.t === 'script') {
+    const base = node.base || { t: 'row', kids: [] };
+    const b = eqBox(base, fs, lvl, ctx);
+    const sf = eqScriptFs(fs, lvl + 1);
+    const sup = node.sup ? eqBox(node.sup, sf, lvl + 1, ctx) : null;
+    const sub = node.sub ? eqBox(node.sub, sf, lvl + 1, ctx) : null;
+    // Sums and products carry their limits above and below; everything else
+    // takes them as scripts on the shoulder.
+    const over = (base.t === 'big' && base.over) || base.t === 'bigtext';
+    if (over) {
+      const gap = fs * 0.12;
+      const w = Math.max(b.w, sup ? sup.w : 0, sub ? sub.w : 0);
+      const a = b.a + (sup ? gap + sup.a + sup.d : 0);
+      const d = b.d + (sub ? gap + sub.a + sub.d : 0);
+      return { w, a, d, draw: (x, y) => {
+        let out = b.draw(x + (w - b.w) / 2, y);
+        if (sup) out += sup.draw(x + (w - sup.w) / 2, y - b.a - gap - sup.d);
+        if (sub) out += sub.draw(x + (w - sub.w) / 2, y + b.d + gap + sub.a);
+        return out;
+      } };
+    }
+    const supY = -Math.max(fs * 0.34, b.a - sf * 0.38);
+    const subY = Math.max(fs * 0.16, b.d + sf * 0.24);
+    const w = b.w + Math.max(sup ? sup.w : 0, sub ? sub.w : 0) + fs * 0.04;
+    const a = Math.max(b.a, sup ? -supY + sup.a : 0);
+    const d = Math.max(b.d, sub ? subY + sub.d : 0);
+    return { w, a, d, draw: (x, y) => {
+      let out = b.draw(x, y);
+      if (sup) out += sup.draw(x + b.w + fs * 0.04, y + supY);
+      if (sub) out += sub.draw(x + b.w + fs * 0.04, y + subY);
+      return out;
+    } };
+  }
+  return empty;
+};
+
+// Strip italics inside \text{…}.
+// True when the box under an accent is a single italic letter, which needs the
+// mark nudged right to sit over the slanted glyph rather than its advance box.
+const eqIsItalic = (n) => {
+  if (!n) return false;
+  if (n.t === 'run') return !!n.it;
+  if (n.t === 'row') return n.kids.length === 1 && eqIsItalic(n.kids[0]);
+  return false;
+};
+
+const eqUpright = (node) => {
+  if (!node || typeof node !== 'object') return node;
+  if (node.t === 'run') return { ...node, it: false };
+  if (node.t === 'row') return { t: 'row', kids: node.kids.map(eqUpright) };
+  return node;
+};
+
+// -- Rendering an equation ------------------------------------------------
+// The context is the only part that knows about this app: it measures with the
+// diagram face and emits the same markup strings every component builds. Runs
+// are emitted centred on their measured advance because the node model renders
+// every <text> with text-anchor="middle" - same result, no change to the model.
+const eqCtx = () => {
+  const F = (v) => +v.toFixed(2);
+  return {
+    measure: (t, fs) => textW(t, fs, FONT),
+    measureIt: (t, fs) => textMetrics(t, fs, true).w,
+    metrics: (t, fs, it) => textMetrics(t, fs, it),
+    text: (cx, y, t, fs, it) =>
+      `<text x="${F(cx)}" y="${F(y)}" font-size="${F(fs)}" font-family="${FONT}"`
+      + `${it ? ' font-style="italic"' : ''} fill="${INK}" stroke="none">${ESC(t)}</text>`,
+    path: (d, t) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${F(t)}" stroke-linecap="round" stroke-linejoin="round"/>`,
+    rule: (x, y, w, t) => `<path d="M${F(x)} ${F(y)}H${F(x + w)}" fill="none" stroke="${INK}" stroke-width="${F(t)}"/>`,
+    dot: (cx, cy, r) => `<circle cx="${F(cx)}" cy="${F(cy)}" r="${F(r)}" fill="${INK}"/>`,
+    // Delimiters are drawn, not set, so they grow with what they hold and do
+    // not depend on the face having a tall enough glyph.
+    delim: (sym, x, y, w, half, fs, closing) => {
+      if (!sym || sym === '.' || !w) return '';
+      const t = Math.max(0.9, fs * 0.06);
+      const top = y - half, bot = y + half;
+      if (sym === '|' || sym === '\\|') return `<path d="M${F(x + w / 2)} ${F(top)}V${F(bot)}" fill="none" stroke="${INK}" stroke-width="${F(t)}"/>`;
+      if (sym === '[' || sym === ']') {
+        const inn = closing ? x : x + w, out = closing ? x + w : x;
+        return `<path d="M${F(out)} ${F(top)}H${F(inn)}M${F(out)} ${F(top)}V${F(bot)}M${F(out)} ${F(bot)}H${F(inn)}" fill="none" stroke="${INK}" stroke-width="${F(t)}"/>`;
+      }
+      if (sym === '\\{' || sym === '\\}') {
+        const k = closing ? -1 : 1, xw = x + w / 2;
+        return `<path d="M${F(xw + k * w * 0.35)} ${F(top)}Q${F(xw - k * w * 0.1)} ${F(top)} ${F(xw - k * w * 0.1)} ${F(top + half * 0.34)}`
+          + `Q${F(xw - k * w * 0.1)} ${F(y)} ${F(xw - k * w * 0.42)} ${F(y)}`
+          + `Q${F(xw - k * w * 0.1)} ${F(y)} ${F(xw - k * w * 0.1)} ${F(bot - half * 0.34)}`
+          + `Q${F(xw - k * w * 0.1)} ${F(bot)} ${F(xw + k * w * 0.35)} ${F(bot)}" fill="none" stroke="${INK}" stroke-width="${F(t)}" stroke-linejoin="round"/>`;
+      }
+      // Round brackets: one quadratic bowing away from the content.
+      const k = closing ? 1 : -1, xm = x + w / 2;
+      return `<path d="M${F(xm - k * w * 0.3)} ${F(top)}Q${F(xm + k * w * 0.55)} ${F(y)} ${F(xm - k * w * 0.3)} ${F(bot)}" fill="none" stroke="${INK}" stroke-width="${F(t)}" stroke-linecap="round"/>`;
+    }
+  };
+};
+
+const EQ_KEY = '@eq';
+const EQ_DEFAULT = 'E = mc^2';
+const eqSource = (i) => String(i.label == null || i.label === '' ? EQ_DEFAULT : i.label);
+// Parsing and measuring on every pointer move would be wasteful, and a drag
+// changes neither. Keyed on the face too, since a typeface swap remeasures.
+const EQ_CACHE = new Map();
+const eqBoxFor = (src, fs) => {
+  const k = FONT + '|' + fs + '|' + src;
+  let v = EQ_CACHE.get(k);
+  if (!v) {
+    if (EQ_CACHE.size > 300) EQ_CACHE.clear();
+    v = eqBox(eqBuild(src), fs, 0, eqCtx());
+    EQ_CACHE.set(k, v);
+  }
+  return v;
+};
+const eqHtml = (i) => {
+  const b = eqBoxFor(eqSource(i), i.fs);
+  // Centred on the item origin, the way every other component is.
+  return b.draw(-b.w / 2, (b.a - b.d) / 2);
+};
+const eqComp = (i) => {
+  const b = eqBoxFor(eqSource(i), i.fs);
+  return { name: 'Equation', w: Math.max(14, b.w + i.fs * 0.24), h: Math.max(14, b.a + b.d + i.fs * 0.2), t: [[0, 0]] };
+};
+
+// Ready-made fragments for the Equation field. `back` is how far to walk the
+// caret back afterwards, so it lands inside the first pair of braces.
+const EQ_SNIPPETS = [
+  { t: 'x\u00b2', ins: '^{}', back: 1, title: 'Superscript' },
+  { t: 'x\u2082', ins: '_{}', back: 1, title: 'Subscript' },
+  { t: 'a\u2044b', ins: '\\frac{}{}', back: 3, title: 'Fraction' },
+  { t: '\u221a', ins: '\\sqrt{}', back: 1, title: 'Square root' },
+  { t: '\u207f\u221a', ins: '\\sqrt[]{}', back: 3, title: 'nth root' },
+  { t: '\u2211', ins: '\\sum_{}^{}', back: 4, title: 'Sum, with limits' },
+  { t: '\u222b', ins: '\\int_{}^{}', back: 4, title: 'Integral, with limits' },
+  { t: 'lim', ins: '\\lim_{}', back: 1, title: 'Limit' },
+  { t: '( )', ins: '\\left( \\right)', back: 8, title: 'Brackets that grow' },
+  { t: '[ ]', ins: '\\left[ \\right]', back: 8, title: 'Square brackets that grow' },
+  { t: '| |', ins: '\\left| \\right|', back: 8, title: 'Modulus' },
+  { t: 'a\u20d7', ins: '\\vec{}', back: 1, title: 'Vector arrow' },
+  { t: 'a\u0304', ins: '\\bar{}', back: 1, title: 'Bar' },
+  { t: 'a\u0302', ins: '\\hat{}', back: 1, title: 'Hat' },
+  { t: 'a\u0307', ins: '\\dot{}', back: 1, title: 'Dot' },
+  { t: 'Ab', ins: '\\text{}', back: 1, title: 'Upright text' },
+  { t: '\u00d7', ins: '\\times ', back: 0, title: 'Times' },
+  { t: '\u00b1', ins: '\\pm ', back: 0, title: 'Plus or minus' },
+  { t: '\u2192', ins: '\\rightarrow ', back: 0, title: 'Arrow' },
+  { t: '\u21cc', ins: '\\rightleftharpoons ', back: 0, title: 'Equilibrium' },
+  { t: '\u2248', ins: '\\approx ', back: 0, title: 'Approximately' },
+  { t: '\u2264', ins: '\\le ', back: 0, title: 'Less than or equal to' },
+  { t: '\u2265', ins: '\\ge ', back: 0, title: 'Greater than or equal to' },
+  { t: '\u221e', ins: '\\infty ', back: 0, title: 'Infinity' },
+  { t: '\u00b0', ins: '\\degree ', back: 0, title: 'Degree' },
+  { t: '\u03b8', ins: '\\theta ', back: 0, title: 'theta' },
+  { t: '\u03c0', ins: '\\pi ', back: 0, title: 'pi' },
+  { t: '\u0394', ins: '\\Delta ', back: 0, title: 'Delta' }
+];
+
+
 const textW = (txt, fs, fam) => {
   try {
     if (!_measCtx) _measCtx = document.createElement('canvas').getContext('2d');
@@ -2285,7 +2839,7 @@ class Component extends DCLogic {
     angleSel: null,
     // Id of the text item being typed into directly on the canvas.
     editId: null,
-    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow', astyle: 'arc', arad: 26, aarrow: 'none' }
+    draft: { sx: 1, sy: 1, fs: 20, rot: 0, sw: 1.8, flip: false, label: '', eqsrc: '', arrow: 'none', route: 'straight', dash: 'solid', bulge: 0.3, ahs: 14, ahStyle: 'solid', deco: 'none', dimEnd: 'arrow', astyle: 'arc', arad: 26, aarrow: 'none' }
   });
 
   // Written from renderVals, the one place that runs after every state change,
@@ -2346,6 +2900,7 @@ class Component extends DCLogic {
         const k = e.key.toLowerCase();
         if (k === 'v') { e.preventDefault(); this.setState({ pick: null, draw: null, cursor: null }); }
         if (k === 't') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })); }
+        if (k === 'q') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === EQ_KEY ? null : EQ_KEY, sel: null, draw: null, cursor: null })); }
         if (k === 'd') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })); }
       }
     };
@@ -2564,6 +3119,15 @@ class Component extends DCLogic {
   place(x, y) {
     const key = this.state.pick; if (!key) return;
     const d = this.state.draft;
+    if (key === EQ_KEY) {
+      this.commit(null);
+      this.setState(s => ({
+        items: s.items.concat({ id: s.nextId, text: true, eq: true, x, y, label: d.eqsrc || EQ_DEFAULT,
+          fs: d.fs, sx: d.sx, sy: d.sy, rot: d.rot, flip: false }),
+        nextId: s.nextId + 1, sel: s.nextId, editId: s.nextId
+      }));
+      return;
+    }
     if (key === TEXT_KEY) {
       this.commit(null);
       this.setState(s => ({
@@ -2641,8 +3205,8 @@ class Component extends DCLogic {
       this.setState(s => ({ draw: { ...s.draw, pts }, cursor: p }));
       return;
     }
-    if (key && key !== TEXT_KEY && (IDX[key] || {}).angle) { this.angleClick(raw); return; }
-    if (key && key !== TEXT_KEY && IDX[key].wire) {
+    if (key && (IDX[key] || {}).angle) { this.angleClick(raw); return; }
+    if (key && (IDX[key] || {}).wire) {
       this.setState({ draw: { key, pts: [p] }, cursor: p, sel: null });
       return;
     }
@@ -2775,7 +3339,7 @@ class Component extends DCLogic {
   // Characters go in at the caret, replacing any selection, and the caret is
   // restored afterwards so a run of picks reads left to right instead of
   // stacking up at the end of the field.
-  insertSym(ch) {
+  insertSym(ch, back) {
     const el = this._labelEl;
     const src = this.selItem || this.state.draft;
     const cur = src.label == null ? '' : String(src.label);
@@ -2783,7 +3347,7 @@ class Component extends DCLogic {
     const a = live ? el.selectionStart : cur.length;
     const b = live ? el.selectionEnd : cur.length;
     this.patch({ label: cur.slice(0, a) + ch + cur.slice(b) });
-    const caret = a + ch.length;
+    const caret = a + ch.length - (back || 0);
     const put = () => {
       const now = this._labelEl;
       if (!now) return;
@@ -3136,7 +3700,9 @@ class Component extends DCLogic {
     const sel = this.selItem;
     // The text tool has no library entry, so it borrows a synthetic descriptor
     // sized from the draft — that keeps the size readout and snapping sane.
-    const pickComp = st.pick === TEXT_KEY
+    const pickComp = st.pick === EQ_KEY
+      ? { ...textComp({ label: st.draft.eqsrc || EQ_DEFAULT, fs: st.draft.fs, eq: true }), text: true, eq: true }
+      : st.pick === TEXT_KEY
       ? { ...textComp({ label: st.draft.label, fs: st.draft.fs }), text: true }
       : (st.pick ? IDX[st.pick] : null);
     const src = sel || st.draft;
@@ -3155,6 +3721,7 @@ class Component extends DCLogic {
     const isWire = !!(sel ? sel.wire : pickComp && pickComp.wire);
     const drawKind = sel && sel.wire ? kindOf(sel) : (pickComp && pickComp.wire ? (pickComp.kind || 'poly') : 'poly');
     const isText = !!(sel ? sel.text : pickComp && pickComp.text);
+    const isEq = !!(sel ? sel.eq : pickComp && pickComp.eq);
     // Viewport-derived viewBox: width/height come from the measured pixel size
     // so one canvas unit is exactly `z` pixels and the rulers stay honest.
     const vb = { x: st.view.x, y: st.view.y, w: st.vp.w / st.view.z, h: st.vp.h / st.view.z };
@@ -3225,6 +3792,10 @@ class Component extends DCLogic {
       // Same tool as the toolbar button, surfaced full-width in the panel. The
       // label doubles as the instruction once the tool is armed.
       textPanelLabel: st.pick === TEXT_KEY ? 'Placing…' : 'Text',
+      // ── Equations ─────────────────────────────────────────────────────
+      addEq: () => this.setState(s2 => ({ pick: s2.pick === EQ_KEY ? null : EQ_KEY, sel: null, draw: null, cursor: null })),
+      eqPanelLabel: st.pick === EQ_KEY ? 'Placing…' : 'Equation',
+      eqPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === EQ_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === EQ_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === EQ_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
       addDim: () => this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })),
       // Select is simply "no tool armed", so it lights up whenever nothing is
       // being placed, and keeps the current selection rather than clearing it.
@@ -3800,7 +4371,18 @@ class Component extends DCLogic {
       })),
       // Vector notation belongs to a free-standing text item, whose label is
       // the whole element; a component's label is an annotation beside it.
-      showDeco: isText,
+      // A decoration belongs to a plain label; an equation writes its own.
+      showDeco: isText && !isEq,
+      isEq: isEq,
+      labelHeading: isEq ? 'Equation' : 'Label',
+      labelPlaceholder: isEq ? 'e.g. s = ut + \\frac{1}{2}at^2' : 'e.g. R₁ = 10 Ω',
+      // The source is longer than what it draws, so the field gets the room.
+      labelInputStyle: `height: 30px; padding: 0 10px; font-family: ${isEq ? "'DM Mono', monospace" : 'inherit'}; font-size: ${isEq ? '11.5px' : '12.5px'}; color: var(--fg); background: var(--field); border: 1px solid var(--field-line); border-radius: 5px; outline: none;`,
+      eqChips: !isEq ? [] : EQ_SNIPPETS.map(c => ({
+        t: c.t, title: `${c.title}  ·  ${c.ins.trim()}`,
+        style: 'min-width: 26px; height: 26px; padding: 0 6px; font-family: inherit; font-size: 12.5px; line-height: 1; color: var(--fg-2); background: var(--field); border: 1px solid var(--field-line); border-radius: 4px; cursor: pointer;',
+        onPick: () => this.insertSym(c.ins, c.back)
+      })),
       decoBtns: TEXT_DECOS.map(o => ({
         name: o.name, title: o.name === 'None' ? 'No mark above the text' : o.name + ' above the text',
         style: `flex: 1 1 30%; min-width: 62px; height: 28px; padding: 0 4px; font-family: inherit; font-size: 11.5px; color: ${(src.deco || 'none') === o.id ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${(src.deco || 'none') === o.id ? 'var(--accent)' : 'var(--field)'}; border: 1px solid ${(src.deco || 'none') === o.id ? 'var(--accent)' : 'var(--field-line)'}; border-radius: 5px; cursor: pointer; white-space: nowrap;`,
@@ -3835,7 +4417,7 @@ class Component extends DCLogic {
         const key = st.pick || (sel && sel.key); if (!key) return;
         const n = st.items.length;
         const x = 150 + (n % 4) * 150, y = 120 + (Math.floor(n / 4) % 3) * 130;
-        if (key !== TEXT_KEY && IDX[key].wire) this.addWire(key, defaultPts(key, x, y));
+        if ((IDX[key] || {}).wire) this.addWire(key, defaultPts(key, x, y));
         else this.setState({ pick: key }, () => this.place(x, y));
       },
       duplicate: () => this.duplicateSel(),
