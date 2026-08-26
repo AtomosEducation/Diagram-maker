@@ -432,8 +432,11 @@
                 </sc-for>
               </g>
             </sc-if>
+            <!-- Open, not solid: a vertex handle sits exactly on the point it
+                 is snapping to, and a filled disc would cover the one thing
+                 worth looking at. A transparent fill still takes the drag. -->
             <sc-for list="{{ handles }}" as="hd" hint-placeholder-count="0">
-              <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="5" fill="#ffffff" stroke="#a8790c" stroke-width="1.6" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
+              <circle cx="{{ hd.x }}" cy="{{ hd.y }}" r="6" fill="transparent" stroke="#a8790c" stroke-width="1.6" vector-effect="non-scaling-stroke" onPointerDown="{{ hd.onDown }}" style="cursor: grab;"></circle>
             </sc-for>
             <sc-if value="{{ anglePick }}" hint-placeholder-val="{{ false }}">
               <path d="{{ anglePick }}" fill="none" stroke="#1d6fb8" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.55" style="pointer-events: none;"></path>

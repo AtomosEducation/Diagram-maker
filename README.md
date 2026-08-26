@@ -63,8 +63,9 @@ Then visit <http://localhost:8765/>.
 - Per-element label, size, rotation, flip and line weight
 - Everything on the canvas carries the same selection box — eight handles to
   resize and a knob to turn it. A drawn shape has no scale or rotation of its
-  own, so its handles work on the points themselves; its vertex dots stay put
-  for reshaping one corner at a time. An arc keeps its curvature under a corner
+  own, so its handles work on the points themselves; its vertex rings stay put
+  for reshaping one corner at a time, drawn open so the grid point underneath
+  shows through. An arc keeps its curvature under a corner
   drag, and Shift holds the proportions on anything else
 - Character palettes under the Label field — subscript, superscript, Greek in
   both cases, and common science and maths symbols, inserted at the caret
