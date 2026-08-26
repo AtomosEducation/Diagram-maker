@@ -399,6 +399,12 @@
             <sc-if value="{{ anglePick }}" hint-placeholder-val="{{ false }}">
               <path d="{{ anglePick }}" fill="none" stroke="#1d6fb8" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.55" style="pointer-events: none;"></path>
             </sc-if>
+            <sc-if value="{{ cutGlow }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ cutGlow }}" fill="none" stroke="#1d6fb8" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.4" style="pointer-events: none;"></path>
+            </sc-if>
+            <sc-if value="{{ cutMark }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ cutMark }}" fill="none" stroke="#b4472e" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke" style="pointer-events: none;"></path>
+            </sc-if>
             <sc-if value="{{ gridHint }}" hint-placeholder-val="{{ false }}">
               <path d="{{ gridHint }}" fill="none" stroke="#a8790c" stroke-width="1.3" vector-effect="non-scaling-stroke" style="pointer-events: none;"></path>
             </sc-if>
@@ -454,11 +460,20 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M3 12h18M3 12l4-3M3 12l4 3M21 12l-4-3M21 12l-4 3"></path></svg>
             {{ dimPanelLabel }}
           </button>
+          <button onClick="{{ addCut }}" title="Cut a drawn shape in two (X)" style="{{ cutPanelStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><circle cx="6" cy="18" r="2.6"></circle><circle cx="6" cy="6" r="2.6"></circle><path d="M8 16.5L19 5M8 7.5L19 19M11.5 11.2l2.2 2.2"></path></svg>
+            {{ cutPanelLabel }}
+          </button>
           <button onClick="{{ toggleIcons }}" title="Everyday picture icons for any subject" style="{{ iconsBtnStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><circle cx="8" cy="8" r="3.4"></circle><path d="M14 5h6v6h-6z"></path><path d="M5 14h6v6H5z"></path><path d="M17 14l3.2 6h-6.4z"></path></svg>
             Icons
           </button>
         </div>
+        <sc-if value="{{ cutOn }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 0 12px 12px;">
+            <div style="padding: 9px 11px; font-size: 11.5px; line-height: 1.55; color: var(--fg-3); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 6px;">{{ cutHintMsg }}</div>
+          </div>
+        </sc-if>
         <sc-if value="{{ iconsOpen }}" hint-placeholder-val="{{ false }}">
           <div style="padding: 0 12px 12px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
@@ -1194,6 +1209,134 @@ const hitD = (it) => {
   if (kind === 'dim') return polyD([p[0], p[1]]);
   return polyD(routePts(p, it.route));
 };
+
+// -- Cutting drawn geometry ------------------------------------------------
+// A cut divides a drawn shape at a point on it, so the halves become separate
+// elements that can be styled apart - the usual reason being to dash one arc
+// of a circle. Only drawn geometry can be cut: a palette glyph is one baked
+// mark with no notion of where along itself it might be divided.
+const CUTTABLE = { seg: 1, poly: 1, polyline: 1, polygon: 1, arc: 1, circle: 1 };
+
+// The points a cut actually walks: the routed path for a wire, and the closed
+// ring for a polygon, rather than the raw vertices.
+const cutWalk = (it, kind) => {
+  const p = kind === 'poly' ? routePts(it.pts, it.route) : it.pts;
+  return kind === 'polygon' ? p.concat([p[0]]) : p;
+};
+
+// Nearest point on a polyline: which segment, how far along it, how far away.
+const polyHit = (pts, q) => {
+  let best = null;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const vx = b.x - a.x, vy = b.y - a.y, den = vx * vx + vy * vy;
+    const t = den ? Math.max(0, Math.min(1, ((q.x - a.x) * vx + (q.y - a.y) * vy) / den)) : 0;
+    const x = a.x + t * vx, y = a.y + t * vy;
+    const d = Math.hypot(q.x - x, q.y - y);
+    if (!best || d < best.d) best = { d, i, t, x, y };
+  }
+  return best;
+};
+
+// The circle behind an arc's chord-and-sagitta form. `sweep` is true when the
+// arc runs in the direction of increasing angle, matching arcD's sweep flag.
+const arcCircle = (a, b, bulge) => {
+  const dx = b.x - a.x, dy = b.y - a.y, c = Math.hypot(dx, dy);
+  const h = c * BULGE(bulge);
+  if (!c || Math.abs(h) < 1e-6) return null;
+  const r = (c * c / 4 + h * h) / (2 * Math.abs(h));
+  // Toward the apex, the same normal arcApex uses.
+  const nx = dy / c, ny = -dx / c;
+  const k = h - Math.sign(h) * r;
+  return { cx: (a.x + b.x) / 2 + nx * k, cy: (a.y + b.y) / 2 + ny * k, r, sweep: h > 0 };
+};
+const TAU = Math.PI * 2;
+// How far the arc travels from one angle to another, taken the way it runs.
+const arcSpan = (from, to, sweep) => {
+  const d = sweep ? to - from : from - to;
+  return ((d % TAU) + TAU) % TAU;
+};
+// The bulge that reproduces a given sweep: sagitta over chord, from the
+// half-angle. Beyond a half turn the sagitta exceeds the radius, which is
+// exactly what makes a major arc bow the long way round.
+const spanBulge = (span, sweep) => {
+  const h = Math.sin(span / 2);
+  if (Math.abs(h) < 1e-6) return sweep ? 0.3 : -0.3;
+  const b = (1 - Math.cos(span / 2)) / (2 * h);
+  return sweep ? b : -b;
+};
+const onCircle = (cx, cy, r, ang) => ({ x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) });
+
+// Where a cut would land on this shape, and how far the pointer is from it.
+const cutHit = (it, kind, q) => {
+  if (kind === 'circle') {
+    const c = it.pts[0], r = circleR(it);
+    const dx = q.x - c.x, dy = q.y - c.y, d = Math.hypot(dx, dy);
+    if (d < 1e-6 || r < 1e-6) return null;
+    return { d: Math.abs(d - r), ang: Math.atan2(dy, dx), x: c.x + r * dx / d, y: c.y + r * dy / d };
+  }
+  if (kind === 'arc') {
+    const a = it.pts[0], b = it.pts[1], cc = arcCircle(a, b, it.bulge);
+    // A bulge of nothing draws as a straight line, and cuts like one.
+    if (!cc) { const h = polyHit([a, b], q); return h && { d: h.d, i: 0, t: h.t, x: h.x, y: h.y }; }
+    const dx = q.x - cc.cx, dy = q.y - cc.cy, d = Math.hypot(dx, dy);
+    if (d < 1e-6) return null;
+    const a0 = Math.atan2(a.y - cc.cy, a.x - cc.cx);
+    const total = arcSpan(a0, Math.atan2(b.y - cc.cy, b.x - cc.cx), cc.sweep);
+    const at = arcSpan(a0, Math.atan2(dy, dx), cc.sweep);
+    // Past either end of the sweep, so not a cut this arc can take.
+    if (at <= 0.02 || at >= total - 0.02) return null;
+    const p = onCircle(cc.cx, cc.cy, cc.r, Math.atan2(dy, dx));
+    return { d: Math.abs(d - cc.r), span: at, total, cc, x: p.x, y: p.y };
+  }
+  const h = polyHit(cutWalk(it, kind), q);
+  return h ? { d: h.d, i: h.i, t: h.t, x: h.x, y: h.y } : null;
+};
+
+// The halves, as the fields that differ from the original item. A closed shape
+// yields one opened piece; everything else yields two.
+const cutPieces = (it, kind, hit, hit2) => {
+  const same = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.4;
+  const trim = (arr) => arr.filter((p, i, a) => i === 0 || !same(p, a[i - 1]));
+  if (kind === 'circle') {
+    if (!hit2) return null;
+    const c = it.pts[0], r = circleR(it);
+    const span = arcSpan(hit.ang, hit2.ang, true);
+    if (span < 0.04 || span > TAU - 0.04) return null;
+    const p1 = onCircle(c.x, c.y, r, hit.ang), p2 = onCircle(c.x, c.y, r, hit2.ang);
+    return [
+      { key: KIND_KEY.arc, pts: [p1, p2], bulge: spanBulge(span, true) },
+      { key: KIND_KEY.arc, pts: [p2, p1], bulge: spanBulge(TAU - span, true) }
+    ];
+  }
+  if (kind === 'arc' && hit.cc) {
+    const a = it.pts[0], b = it.pts[1], p = { x: hit.x, y: hit.y };
+    return [
+      { pts: [a, p], bulge: spanBulge(hit.span, hit.cc.sweep) },
+      { pts: [p, b], bulge: spanBulge(hit.total - hit.span, hit.cc.sweep) }
+    ];
+  }
+  const p = { x: hit.x, y: hit.y };
+  if (kind === 'polygon') {
+    // Walk the ring from the cut all the way round and back to it, which is
+    // what turns a closed outline into one open run.
+    const ring = it.pts, n = ring.length;
+    if (n < 3) return null;
+    const seq = [];
+    for (let k = 1; k <= n; k++) seq.push(ring[(hit.i + k) % n]);
+    const open = trim([p].concat(seq).concat([p]));
+    return open.length < 2 ? null : [{ key: KIND_KEY.polyline, pts: open }];
+  }
+  const pts = cutWalk(it, kind);
+  const head = trim(pts.slice(0, hit.i + 1).concat([p]));
+  const tail = trim([p].concat(pts.slice(hit.i + 1)));
+  if (head.length < 2 || tail.length < 2) return null;
+  // An elbowed wire is cut where it is drawn, so the halves carry the routed
+  // corners as real vertices and keep the shape they had.
+  const extra = kind === 'poly' ? { route: 'straight' } : {};
+  return [{ ...extra, pts: head }, { ...extra, pts: tail }];
+};
+
 // Points used when a drawable is added straight from the panel button rather
 // than clicked out on the canvas. A polygon needs three corners to be a shape
 // at all; everything else reads fine from two.
@@ -2386,6 +2529,16 @@ LIB.forEach(s => s.units.forEach(u => u.comps.forEach(c => { IDX[s.id + '/' + u.
 // registered straight into IDX instead of sitting in a unit's palette. Being
 // in IDX is what lets it reuse the drawable path: two clicks, a live preview,
 // vertex handles and point snapping, all unchanged.
+// One representative key per drawn kind. A cut can change what a shape is -
+// a circle becomes two arcs, a polygon becomes an open polyline - and the new
+// pieces need a key whose component carries that kind.
+const KIND_KEY = {};
+Object.keys(IDX).forEach(k => {
+  const c = IDX[k];
+  if (c && c.wire && c.kind && !KIND_KEY[c.kind]) KIND_KEY[c.kind] = k;
+});
+
+const CUT_KEY = '@cut';
 const DIM_KEY = '@dim';
 IDX[DIM_KEY] = { id: 'dim', name: 'Dimension', wire: true, kind: 'dim', w: 120, h: 34 };
 
@@ -2828,6 +2981,8 @@ class Component extends DCLogic {
     iconMsg: '',
     // Name awaiting delete confirmation, and the import/export status line.
     libConfirm: null, libIoMsg: '', libLoadMsg: '',
+    // First of the two points a circle needs before it can be parted.
+    cutFirst: null,
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
     // factor in px per canvas unit; `vp` is the live pixel size of the canvas
     // element, measured so the viewBox aspect always matches it exactly.
@@ -2900,6 +3055,7 @@ class Component extends DCLogic {
         const k = e.key.toLowerCase();
         if (k === 'v') { e.preventDefault(); this.setState({ pick: null, draw: null, cursor: null }); }
         if (k === 't') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })); }
+        if (k === 'x') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === CUT_KEY ? null : CUT_KEY, sel: null, draw: null, cursor: null, cutFirst: null })); }
         if (k === 'q') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === EQ_KEY ? null : EQ_KEY, sel: null, draw: null, cursor: null })); }
         if (k === 'd') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })); }
       }
@@ -3205,6 +3361,9 @@ class Component extends DCLogic {
       this.setState(s => ({ draw: { ...s.draw, pts }, cursor: p }));
       return;
     }
+    // The unsnapped pointer: a cut is projected onto the shape anyway, and
+    // rounding to the grid first only drags it away from where it was aimed.
+    if (key === CUT_KEY) { this.cutClick(this.rawPt(e)); return; }
     if (key && (IDX[key] || {}).angle) { this.angleClick(raw); return; }
     if (key && (IDX[key] || {}).wire) {
       this.setState({ draw: { key, pts: [p] }, cursor: p, sel: null });
@@ -3218,7 +3377,7 @@ class Component extends DCLogic {
   // component is armed (so the snap marker can preview where it will land).
   onCanvasMove = (e) => {
     if (!this.state.draw && !this.state.pick) return;
-    const p = this.pt(e);
+    const p = this.state.pick === CUT_KEY ? this.rawPt(e) : this.pt(e);
     const c = this.state.cursor, free = !!e.altKey;
     if (!c || c.x !== p.x || c.y !== p.y || free !== this.state.cursorFree) {
       this.setState({ cursor: p, cursorFree: free });
@@ -3226,6 +3385,62 @@ class Component extends DCLogic {
   };
 
   onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
+
+  // ── Cutting a shape ─────────────────────────────────────────────────────
+  // The nearest cuttable shape under the point, within reach on screen rather
+  // than in the drawing, so the tool feels the same at every zoom.
+  cutTarget(q) {
+    let best = null;
+    this.state.items.forEach(it => {
+      if (!it.wire) return;
+      const kind = kindOf(it);
+      if (!CUTTABLE[kind]) return;
+      const hit = cutHit(it, kind, q);
+      if (hit && (!best || hit.d < best.hit.d)) best = { it, kind, hit };
+    });
+    return best && best.hit.d <= 12 / this.state.view.z ? best : null;
+  }
+
+  cutClick(q) {
+    const t = this.cutTarget(q);
+    if (!t) return;
+    // A circle has no ends, so one cut leaves it whole - it takes two points
+    // to lift an arc out of it. Everything else parts at a single click.
+    if (t.kind === 'circle') {
+      const first = this.state.cutFirst;
+      if (!first || first.id !== t.it.id) {
+        this.setState({ cutFirst: { id: t.it.id, ang: t.hit.ang, x: t.hit.x, y: t.hit.y } });
+        return;
+      }
+      this.cutAt(t.it.id, { ang: first.ang }, { ang: t.hit.ang });
+      return;
+    }
+    this.cutAt(t.it.id, t.hit, null);
+  }
+
+  cutAt(id, hit, hit2) {
+    const it = this.state.items.find(x => x.id === id);
+    if (!it) return;
+    const parts = cutPieces(it, kindOf(it), hit, hit2);
+    if (!parts || !parts.length) { this.setState({ cutFirst: null }); return; }
+    this.commit(null);
+    this.setState(s2 => {
+      const base = s2.nextId;
+      const made = parts.map((pc, k) => ({
+        ...it, ...pc, id: base + k, key: pc.key || it.key,
+        // One label copied onto both halves would print twice, and an arrow
+        // belongs to whichever piece still ends where the original did.
+        label: k === 0 ? it.label : '',
+        arrow: k === parts.length - 1 ? it.arrow : 'none'
+      }));
+      return {
+        items: s2.items.filter(x => x.id !== id).concat(made),
+        nextId: base + made.length,
+        sel: made[made.length - 1].id,
+        cutFirst: null
+      };
+    });
+  }
 
   // ── Marking an angle ────────────────────────────────────────────────────
   // Nearest drawn line under the point, as an item plus which of its segments.
@@ -3722,6 +3937,9 @@ class Component extends DCLogic {
     const drawKind = sel && sel.wire ? kindOf(sel) : (pickComp && pickComp.wire ? (pickComp.kind || 'poly') : 'poly');
     const isText = !!(sel ? sel.text : pickComp && pickComp.text);
     const isEq = !!(sel ? sel.eq : pickComp && pickComp.eq);
+    // Found once and read by both the highlight and the mark, rather than
+    // walking every item twice on each pointer move.
+    const cutAim = st.pick === CUT_KEY && st.cursor ? this.cutTarget(st.cursor) : null;
     // Viewport-derived viewBox: width/height come from the measured pixel size
     // so one canvas unit is exactly `z` pixels and the rulers stay honest.
     const vb = { x: st.view.x, y: st.view.y, w: st.vp.w / st.view.z, h: st.vp.h / st.view.z };
@@ -3792,6 +4010,27 @@ class Component extends DCLogic {
       // Same tool as the toolbar button, surfaced full-width in the panel. The
       // label doubles as the instruction once the tool is armed.
       textPanelLabel: st.pick === TEXT_KEY ? 'Placing…' : 'Text',
+      // ── Cutting ───────────────────────────────────────────────────────
+      cutOn: st.pick === CUT_KEY,
+      addCut: () => this.setState(s2 => ({ pick: s2.pick === CUT_KEY ? null : CUT_KEY, sel: null, draw: null, cursor: null, cutFirst: null })),
+      cutPanelLabel: st.pick === CUT_KEY ? 'Cutting…' : 'Scissor',
+      cutPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === CUT_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === CUT_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === CUT_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
+      cutHintMsg: st.cutFirst
+        ? 'Now click the other end of the arc. The circle parts into two arcs, and each takes its own line style.'
+        : 'Click a drawn line, arc, polyline or polygon to part it there. A circle takes two clicks, one at each end of the arc you want. Palette components cannot be cut.',
+      // The shape a click would take, and the mark showing where.
+      cutGlow: cutAim ? hitD(cutAim.it) : '',
+      cutMark: (() => {
+        if (st.pick !== CUT_KEY) return '';
+        const z = st.view.z, r = 7 / z;
+        const cross = (x, y) => `M${(x - r).toFixed(1)} ${(y - r).toFixed(1)}L${(x + r).toFixed(1)} ${(y + r).toFixed(1)}`
+          + `M${(x + r).toFixed(1)} ${(y - r).toFixed(1)}L${(x - r).toFixed(1)} ${(y + r).toFixed(1)}`;
+        // The first point of a circle cut stays marked while the second is chosen.
+        let d = st.cutFirst ? cross(st.cutFirst.x, st.cutFirst.y) : '';
+        if (cutAim) d += cross(cutAim.hit.x, cutAim.hit.y);
+        return d;
+      })(),
+
       // ── Equations ─────────────────────────────────────────────────────
       addEq: () => this.setState(s2 => ({ pick: s2.pick === EQ_KEY ? null : EQ_KEY, sel: null, draw: null, cursor: null })),
       eqPanelLabel: st.pick === EQ_KEY ? 'Placing…' : 'Equation',
@@ -3849,7 +4088,11 @@ class Component extends DCLogic {
       isEmpty: st.items.length === 0 && !st.draw,
       statusLine: st.draw
         ? `drawing wire  ·  ${st.draw.pts.length} point${st.draw.pts.length === 1 ? '' : 's'}  ·  double-click or Enter to finish, Esc to cancel`
-        : `${st.items.length} element${st.items.length === 1 ? '' : 's'}${st.pick ? '  ·  placing ' + pickComp.name : ''}`,
+        // Not every armed tool places a component - the scissor acts on what
+        // is already drawn - so the name is only read when there is one.
+        : `${st.items.length} element${st.items.length === 1 ? '' : 's'}`
+          + (st.pick === CUT_KEY ? (st.cutFirst ? '  ·  click the other end of the arc' : '  ·  click a drawn shape to cut it')
+            : (st.pick && pickComp ? '  ·  placing ' + pickComp.name : '')),
       svgRef: this.attachCanvas,
 
       // ── View ──────────────────────────────────────────────────────────

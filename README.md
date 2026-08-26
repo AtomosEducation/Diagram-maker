@@ -79,6 +79,10 @@ Then visit <http://localhost:8765/>.
 - Settings popover — grid size (snapping follows at half steps), default line
   width, text size, label size and export margin, remembered between sessions
   along with the theme, grid style, typeface and snap toggles
+- Scissor (`X`) — cut a drawn shape where you click and the halves become
+  separate elements, so one can be dashed while the other stays solid. A line,
+  arc, polyline or polygon parts at a single click; a circle takes two, one at
+  each end of the arc you want out of it
 - Select, Text and Dimension tools in the Properties panel, on V, T and D
 - Icons shelf beside those tools — person, car, earth, satellite, the
   right-hand rule fist, thumbs up, eye, tree, ship, sun, moon, aeroplane and
@@ -129,6 +133,9 @@ name rather than vanishing, so a typo is visible on the canvas.
 - Nothing from an uploaded file reaches the live document. It is parsed with
   `DOMParser`, which runs no scripts, and only geometry is carried across —
   the markup that renders is rebuilt from that geometry.
+- The scissor works on drawn geometry — segments, rays, wires, polylines,
+  polygons, arcs and circles. A palette component is one baked mark with no
+  notion of where along itself it might be divided, so it cannot be cut.
 - Exported text is centred with an explicit `dy` rather than
   `dominant-baseline`, which Illustrator ignores.
 - The exported SVG pulls DM Sans via a Google Fonts `@import`, which Illustrator and
