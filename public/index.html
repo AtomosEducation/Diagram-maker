@@ -476,6 +476,9 @@
             <sc-if value="{{ anglePick }}" hint-placeholder-val="{{ false }}">
               <path d="{{ anglePick }}" fill="none" stroke="#1d6fb8" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.55" style="pointer-events: none;"></path>
             </sc-if>
+            <sc-if value="{{ penTrail }}" hint-placeholder-val="{{ false }}">
+              <path d="{{ penTrail }}" fill="none" stroke="{{ penInk }}" stroke-width="{{ penSw }}" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;"></path>
+            </sc-if>
             <sc-if value="{{ cutGlow }}" hint-placeholder-val="{{ false }}">
               <path d="{{ cutGlow }}" fill="none" stroke="#1d6fb8" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.4" style="pointer-events: none;"></path>
             </sc-if>
@@ -536,6 +539,10 @@
           <button onClick="{{ addDim }}" title="Measure between two points on the canvas (D)" style="{{ dimPanelStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M3 12h18M3 12l4-3M3 12l4 3M21 12l-4-3M21 12l-4 3"></path></svg>
             {{ dimPanelLabel }}
+          </button>
+          <button onClick="{{ addPen }}" title="Draw freehand (P)" style="{{ penPanelStyle }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><path d="M4 20l1.2-4.2L16 5a2.3 2.3 0 013.2 3.2L8.2 18.8 4 20z"></path><path d="M14.6 6.6l2.8 2.8"></path></svg>
+            {{ penPanelLabel }}
           </button>
           <button onClick="{{ addCut }}" title="Cut a drawn shape in two (X)" style="{{ cutPanelStyle }}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 14px;"><circle cx="6" cy="18" r="2.6"></circle><circle cx="6" cy="6" r="2.6"></circle><path d="M8 16.5L19 5M8 7.5L19 19M11.5 11.2l2.2 2.2"></path></svg>
@@ -1581,13 +1588,58 @@ const subsOf = (html) => {
 const pathComp = (i) => {
   const box = { w: i.pw || 10, h: i.ph || 10 };
   return {
-    name: ((IDX[i.key] || {}).name || 'Shape') + ' (cut)',
+    name: i.pen ? 'Freehand' : ((IDX[i.key] || {}).name || 'Shape') + ' (cut)',
     w: box.w, h: box.h,
     d: (sw) => i.paths.map(p => p.fill
       ? `<path d="${p.d}" fill="${INK}" stroke="none"/>`
       : strokeD(p.d, sw, i.dash)).join('') + (i.extra || '')
   };
 };
+
+// -- Freehand ------------------------------------------------------------
+// A pointer trail is hundreds of points a fraction of a pixel apart, which is
+// neither editable nor worth exporting. It is thinned to the points that carry
+// the shape, then curved back through them, so what lands is a smooth line of
+// a few dozen segments rather than a rash of tiny facets.
+
+// Ramer-Douglas-Peucker: keep the point furthest from the chord while it is
+// further than the tolerance, and recurse on each side.
+const rdp = (pts, eps) => {
+  if (pts.length < 3) return pts.slice();
+  const a = pts[0], b = pts[pts.length - 1];
+  let idx = 0, far = -1;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = segDist(pts[i], a, b);
+    if (d > far) { far = d; idx = i; }
+  }
+  if (far <= eps) return [a, b];
+  return rdp(pts.slice(0, idx + 1), eps).slice(0, -1).concat(rdp(pts.slice(idx), eps));
+};
+
+// A Catmull-Rom spline through the points, written as the cubics it is
+// equivalent to. The curve passes through every point it was given, which is
+// what makes it feel like the line that was drawn rather than near it.
+const smoothD = (pts, closed) => {
+  const n = pts.length, f = (v) => +v.toFixed(2);
+  if (n < 2) return '';
+  if (n === 2) return `M${f(pts[0].x)} ${f(pts[0].y)}L${f(pts[1].x)} ${f(pts[1].y)}`;
+  const at = (i) => closed ? pts[((i % n) + n) % n] : pts[Math.max(0, Math.min(n - 1, i))];
+  let d = `M${f(pts[0].x)} ${f(pts[0].y)}`;
+  const last = closed ? n : n - 1;
+  for (let i = 0; i < last; i++) {
+    const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+    d += `C${f(p1.x + (p2.x - p0.x) / 6)} ${f(p1.y + (p2.y - p0.y) / 6)}`
+      + ` ${f(p2.x - (p3.x - p1.x) / 6)} ${f(p2.y - (p3.y - p1.y) / 6)}`
+      + ` ${f(p2.x)} ${f(p2.y)}`;
+  }
+  return d + (closed ? 'Z' : '');
+};
+
+// Straight through the raw trail, for the line under the pointer while it is
+// still being drawn - smoothing that on every move would only shimmer.
+const rawD = (pts) => pts.length < 2 ? '' : 'M' + pts.map(p => `${+p.x.toFixed(1)} ${+p.y.toFixed(1)}`).join('L');
+
+const PEN_KEY = '@pen';
 
 // The item's own frame, for turning a canvas point into component coordinates
 // and its outlines back into canvas ones.
@@ -3412,6 +3464,8 @@ class Component extends DCLogic {
     libConfirm: null, libIoMsg: '', libLoadMsg: '',
     // First of the two points a circle needs before it can be parted.
     cutFirst: null,
+    // The trail under the pointer while a freehand line is being drawn.
+    pen: null,
     favs: loadFavs(),
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
     // factor in px per canvas unit; `vp` is the live pixel size of the canvas
@@ -3485,6 +3539,7 @@ class Component extends DCLogic {
         const k = e.key.toLowerCase();
         if (k === 'v') { e.preventDefault(); this.setState({ pick: null, draw: null, cursor: null }); }
         if (k === 't') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === TEXT_KEY ? null : TEXT_KEY, sel: null, draw: null, cursor: null })); }
+        if (k === 'p') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === PEN_KEY ? null : PEN_KEY, sel: null, draw: null, cursor: null, pen: null })); }
         if (k === 'x') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === CUT_KEY ? null : CUT_KEY, sel: null, draw: null, cursor: null, cutFirst: null })); }
         if (k === 'q') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === EQ_KEY ? null : EQ_KEY, sel: null, draw: null, cursor: null })); }
         if (k === 'd') { e.preventDefault(); this.setState(s2 => ({ pick: s2.pick === DIM_KEY ? null : DIM_KEY, sel: null, draw: null, cursor: null })); }
@@ -3879,6 +3934,7 @@ class Component extends DCLogic {
     // The unsnapped pointer: a cut is projected onto the shape anyway, and
     // rounding to the grid first only drags it away from where it was aimed.
     if (key === CUT_KEY) { this.cutClick(this.rawPt(e)); return; }
+    if (key === PEN_KEY) { this.penDown(e); return; }
     if (key && (IDX[key] || {}).angle) { this.angleClick(raw); return; }
     if (key && (IDX[key] || {}).wire) {
       this.setState({ draw: { key, pts: [p] }, cursor: p, sel: null });
@@ -3900,6 +3956,61 @@ class Component extends DCLogic {
   };
 
   onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
+
+  // ── Freehand ────────────────────────────────────────────────────────────
+  // Unsnapped throughout: a line drawn by hand is not trying to meet the grid,
+  // and rounding every sample to it would make a staircase of the trail.
+  penDown(e) {
+    e.preventDefault();
+    const start = this.rawPt(e);
+    let pts = [start];
+    this.setState({ pen: pts, sel: null });
+    const move = (ev) => {
+      const p = this.rawPt(ev);
+      const last = pts[pts.length - 1];
+      // Samples arrive far closer together than they are worth keeping.
+      if (Math.hypot(p.x - last.x, p.y - last.y) < 1.2 / this.state.view.z) return;
+      pts = pts.concat(p);
+      this.setState({ pen: pts });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      this.penFinish(pts);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  penFinish(raw) {
+    const z = this.state.view.z;
+    // A dab with no travel is a slip of the hand, not a line.
+    if (raw.length < 2) { this.setState({ pen: null }); return; }
+    const pts = rdp(raw, 1.1 / z);
+    if (pts.length < 2) { this.setState({ pen: null }); return; }
+    // Ending near where it began reads as a shape rather than a stroke, so it
+    // is closed and the join is smoothed like every other part of the curve.
+    const a = pts[0], b = pts[pts.length - 1];
+    const span = Math.max(...pts.map(p => Math.hypot(p.x - a.x, p.y - a.y)));
+    const closed = pts.length > 4 && span > 24 / z && Math.hypot(b.x - a.x, b.y - a.y) < Math.min(18 / z, span * 0.3);
+    const use = closed ? pts.slice(0, -1) : pts;
+    const d = smoothD(use, closed);
+    if (!d) { this.setState({ pen: null }); return; }
+    const subs = cmdsToSubs(pathAbs(d), false);
+    const box = subsBox(subs);
+    const moved = subsShift(subs, -box.cx, -box.cy);
+    const dr = this.state.draft;
+    this.commit(null);
+    this.setState(s2 => ({
+      items: s2.items.concat({
+        id: s2.nextId, pen: true, key: PEN_KEY, x: box.cx, y: box.cy,
+        paths: moved.map(x => ({ d: subD(x), fill: false })),
+        pw: box.w, ph: box.h, extra: '',
+        sx: 1, sy: 1, rot: 0, flip: false, sw: dr.sw, dash: dr.dash, label: '', lpos: dr.lpos
+      }),
+      nextId: s2.nextId + 1, sel: s2.nextId, pen: null
+    }));
+  }
 
   // ── Cutting a shape ─────────────────────────────────────────────────────
   // The nearest cuttable shape under the point, within reach on screen rather
@@ -4638,6 +4749,16 @@ class Component extends DCLogic {
       // Same tool as the toolbar button, surfaced full-width in the panel. The
       // label doubles as the instruction once the tool is armed.
       textPanelLabel: st.pick === TEXT_KEY ? 'Placing…' : 'Text',
+      // ── Freehand ──────────────────────────────────────────────────────
+      addPen: () => this.setState(s2 => ({ pick: s2.pick === PEN_KEY ? null : PEN_KEY, sel: null, draw: null, cursor: null, pen: null })),
+      penPanelLabel: st.pick === PEN_KEY ? 'Drawing…' : 'Pencil',
+      penPanelStyle: `display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 78px; min-width: 78px; height: 32px; padding: 0 8px; font-family: inherit; font-size: 12.5px; font-weight: 500; color: ${st.pick === PEN_KEY ? 'var(--on-accent)' : 'var(--fg-2)'}; background: ${st.pick === PEN_KEY ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.pick === PEN_KEY ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 6px; cursor: pointer; white-space: nowrap;`,
+      // Straight through the raw samples: smoothing on every move would make
+      // the line shimmer under the hand drawing it.
+      penTrail: st.pen ? rawD(st.pen) : '',
+      penInk: INK_CANVAS,
+      penSw: st.draft.sw,
+
       // ── Cutting ───────────────────────────────────────────────────────
       cutOn: st.pick === CUT_KEY,
       addCut: () => this.setState(s2 => ({ pick: s2.pick === CUT_KEY ? null : CUT_KEY, sel: null, draw: null, cursor: null, cutFirst: null })),
@@ -4731,7 +4852,8 @@ class Component extends DCLogic {
         // Not every armed tool places a component - the scissor acts on what
         // is already drawn - so the name is only read when there is one.
         : `${st.items.length} element${st.items.length === 1 ? '' : 's'}`
-          + (st.pick === CUT_KEY ? (st.cutFirst ? '  ·  click the other end of the arc' : '  ·  click a drawn shape to cut it')
+          + (st.pick === PEN_KEY ? '  ·  drag to draw; end where you began to close the shape'
+            : st.pick === CUT_KEY ? (st.cutFirst ? '  ·  click the other end of the arc' : '  ·  click a drawn shape to cut it')
             : (st.pick && pickComp ? '  ·  placing ' + pickComp.name : '')),
       svgRef: this.attachCanvas,
 

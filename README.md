@@ -98,6 +98,11 @@ Then visit <http://localhost:8765/>.
 - Settings popover — grid size (snapping follows at half steps), default line
   width, text size, label size and export margin, remembered between sessions
   along with the theme, grid style, typeface and snap toggles
+- Pencil (`P`) — drag to draw any shape by hand. The trail is thinned to the
+  points that carry the shape and curved back through them, so what lands is a
+  smooth line of a few dozen segments rather than hundreds of tiny facets;
+  finishing near where you began closes it. From then on it selects, scales,
+  turns, takes a line style and cuts like anything else
 - Scissor (`X`) — cut anything where you click and the pieces become separate
   elements, so one can be dashed while the other stays solid. A line, arc,
   polyline or polygon parts at a single click; a circle takes two, one at each
