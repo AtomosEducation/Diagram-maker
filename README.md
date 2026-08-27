@@ -60,6 +60,11 @@ Then visit <http://localhost:8765/>.
   to a full sheet of graph paper
 - Thumbnail strip of everything on the canvas, so any element can be selected
   from the Properties panel without hunting for it
+- **Select multiple** in that strip ticks several elements and groups them.
+  A group moves as one and carries a violet dashed box of its own, drawn
+  unlike the gold selection frame so the two are never confused. Double-click
+  to step inside and work on one member; the box goes faint while you are in
+  there. A group can be duplicated, ungrouped or deleted from the bar above it
 - Per-element label, size, rotation, flip and line weight
 - Everything on the canvas carries the same selection box — eight handles to
   resize and a knob to turn it. A drawn shape has no scale or rotation of its

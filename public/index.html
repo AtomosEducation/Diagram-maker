@@ -334,6 +334,15 @@
               </sc-for>
             </div>
           </sc-if>
+          <sc-if value="{{ groupBar }}" hint-placeholder-val="{{ false }}">
+            <div style="{{ groupBarStyle }}">
+              <sc-for list="{{ groupBarBtns }}" as="gb2" hint-placeholder-count="3">
+                <button onClick="{{ gb2.onClick }}" title="{{ gb2.title }}" style="{{ gb2.style }}" style-hover="background: var(--ctl-hover);">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><path d="{{ gb2.icon }}"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
           <sc-if value="{{ rightBar }}" hint-placeholder-val="{{ false }}">
             <div style="{{ rightBarStyle }}">
               <sc-for list="{{ rightBarBtns }}" as="rb" hint-placeholder-count="3">
@@ -457,6 +466,13 @@
                 </sc-for>
               </g>
             </sc-for>
+            <sc-if value="{{ groupBox }}" hint-placeholder-val="{{ false }}">
+              <g style="pointer-events: none;">
+                <rect x="{{ groupBox.x }}" y="{{ groupBox.y }}" width="{{ groupBox.w }}" height="{{ groupBox.h }}" rx="{{ groupBox.r }}" fill="none" stroke="{{ groupBox.ink }}" stroke-width="{{ groupBox.sw }}" stroke-dasharray="{{ groupBox.dash }}" vector-effect="non-scaling-stroke"></rect>
+                <rect x="{{ groupBox.tx }}" y="{{ groupBox.ty }}" width="{{ groupBox.tw }}" height="{{ groupBox.th }}" rx="{{ groupBox.tr }}" fill="{{ groupBox.ink }}"></rect>
+                <text x="{{ groupBox.lx }}" y="{{ groupBox.ly }}" dy="{{ groupBox.ldy }}" text-anchor="middle" font-size="{{ groupBox.lfs }}" font-family="DM Mono, monospace" fill="#ffffff" stroke="none">{{ groupBox.tag }}</text>
+              </g>
+            </sc-if>
             <sc-if value="{{ frame }}" hint-placeholder-val="{{ false }}">
               <g transform="{{ frame.transform }}" style="pointer-events: none;">
                 <rect x="{{ frame.x }}" y="{{ frame.y }}" width="{{ frame.w }}" height="{{ frame.h }}" fill="none" stroke="#a8790c" stroke-width="1" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"></rect>
@@ -602,7 +618,10 @@
         </sc-if>
         <sc-if value="{{ hasThumbs }}" hint-placeholder-val="{{ false }}">
           <div style="padding: 0 12px 12px;">
-            <div style="font-size: 11.5px; color: var(--fg-3); padding: 0 2px 7px;">On the canvas · {{ thumbCount }}</div>
+            <div style="display: flex; align-items: center; gap: 6px; padding: 0 2px 7px;">
+              <span style="flex: 1; font-size: 11.5px; color: var(--fg-3);">On the canvas · {{ thumbCount }}</span>
+              <button onClick="{{ toggleMulti }}" title="Tick several, then group them" style="{{ multiBtnStyle }}">{{ multiBtnLabel }}</button>
+            </div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
               <sc-for list="{{ thumbs }}" as="th" hint-placeholder-count="0">
                 <button onClick="{{ th.onPick }}" title="{{ th.title }}" style="{{ th.style }}" style-hover="border-color: var(--accent-line);">
@@ -622,6 +641,14 @@
                 </button>
               </sc-for>
             </div>
+            <sc-if value="{{ multiOn }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; gap: 5px; padding-top: 8px;">
+                <button onClick="{{ doGroup }}" title="Make one group of what is ticked" style="{{ groupBtnStyle }}">{{ groupBtnLabel }}</button>
+                <sc-if value="{{ canUngroupPicked }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ doUngroupPicked }}" title="Take the ticked elements out of their group" style="height: 28px; padding: 0 10px; font-family: inherit; font-size: 11.5px; color: var(--fg-2); background: var(--ctl); border: 1px solid var(--ctl-line); border-radius: 5px; cursor: pointer;" style-hover="background: var(--ctl-hover);">Ungroup</button>
+                </sc-if>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
         <sc-if value="{{ hasProps }}" hint-placeholder-val="{{ true }}">
@@ -914,6 +941,9 @@ const SYMSETS = [
 const INK_CANVAS = '#16201a';
 const INK_ICON = '#e8e4da';
 const INK_ICON_LIGHT = '#322d22';
+// A group is marked in a colour of its own, so its box is never mistaken
+// for the gold selection frame or the blue the pointer hints use.
+const GROUP_INK = '#7b5ea7';
 let INK = INK_CANVAS;
 const withInk = (col, fn) => { const prev = INK; INK = col; try { return fn(); } finally { INK = prev; } };
 
@@ -1594,6 +1624,31 @@ const pathComp = (i) => {
       ? `<path d="${p.d}" fill="${INK}" stroke="none"/>`
       : strokeD(p.d, sw, i.dash)).join('') + (i.extra || '')
   };
+};
+
+// -- Groups ---------------------------------------------------------------
+// A group is not a container: the members keep their own coordinates and carry
+// the same `gid`. Nothing else in the app has to learn about nesting - drawing,
+// export, the library and the scissor all still see a flat list of elements -
+// and the group is only a fact about which of them move together.
+const itemBox = (it) => {
+  if (it.wire) return wireBounds(it);
+  const c = compOf(it);
+  const hw = c.w * (it.sx == null ? 1 : it.sx) / 2, hh = c.h * (it.sy == null ? 1 : it.sy) / 2;
+  const a = (it.rot || 0) * Math.PI / 180;
+  const ca = Math.abs(Math.cos(a)), sa = Math.abs(Math.sin(a));
+  const ex = hw * ca + hh * sa, ey = hw * sa + hh * ca;
+  return { minX: it.x - ex, maxX: it.x + ex, minY: it.y - ey, maxY: it.y + ey };
+};
+const unionBox = (list) => {
+  if (!list.length) return null;
+  let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+  list.forEach(it => {
+    const b = itemBox(it);
+    minX = Math.min(minX, b.minX); maxX = Math.max(maxX, b.maxX);
+    minY = Math.min(minY, b.minY); maxY = Math.max(maxY, b.maxY);
+  });
+  return { minX, maxX, minY, maxY };
 };
 
 // -- Freehand ------------------------------------------------------------
@@ -3466,6 +3521,9 @@ class Component extends DCLogic {
     cutFirst: null,
     // The trail under the pointer while a freehand line is being drawn.
     pen: null,
+    // Groups: the one selected whole, the one opened for editing inside, and
+    // the thumbnail ticking that builds a new one.
+    selGid: null, openGid: null, nextGid: 1, multi: false, picked: [],
     favs: loadFavs(),
     // `view` is the canvas coordinate at the viewport's top-left plus a zoom
     // factor in px per canvas unit; `vp` is the live pixel size of the canvas
@@ -3941,7 +3999,7 @@ class Component extends DCLogic {
       return;
     }
     if (key) this.place(raw.x, raw.y);
-    else this.setState({ sel: null });
+    else this.setState({ sel: null, selGid: null, openGid: null });
   };
 
   // Cursor is tracked while drawing a wire (for the rubber band) and while a
@@ -3956,6 +4014,79 @@ class Component extends DCLogic {
   };
 
   onCanvasDouble = () => { if (this.state.draw) this.finishWire(); };
+
+  // ── Groups ──────────────────────────────────────────────────────────────
+  groupPicked() {
+    const ids = this.state.picked.filter(id => this.state.items.some(i => i.id === id));
+    if (ids.length < 2) return;
+    this.commit(null);
+    this.setState(s2 => {
+      const gid = 'g' + s2.nextGid;
+      return {
+        items: s2.items.map(i => ids.indexOf(i.id) >= 0 ? { ...i, gid } : i),
+        nextGid: s2.nextGid + 1, picked: [], multi: false,
+        sel: null, selGid: gid, openGid: null
+      };
+    });
+  }
+
+  ungroup(gid) {
+    if (!gid) return;
+    this.commit(null);
+    this.setState(s2 => ({
+      items: s2.items.map(i => i.gid === gid ? { ...i, gid: null } : i),
+      selGid: null, openGid: null, picked: [], multi: false
+    }));
+  }
+
+  removeGroup(gid) {
+    if (!gid) return;
+    this.commit(null);
+    this.setState(s2 => ({ items: s2.items.filter(i => i.gid !== gid), selGid: null, openGid: null }));
+  }
+
+  duplicateGroup(gid) {
+    const members = this.state.items.filter(i => i.gid === gid);
+    if (!members.length) return;
+    this.commit(null);
+    this.setState(s2 => {
+      const ng = 'g' + s2.nextGid;
+      let id = s2.nextId;
+      const made = members.map(m => ({
+        ...m, id: id++, gid: ng,
+        ...(m.wire ? { pts: m.pts.map(p => ({ x: p.x + 40, y: p.y + 40 })) } : { x: m.x + 40, y: m.y + 40 })
+      }));
+      return { items: s2.items.concat(made), nextId: id, nextGid: s2.nextGid + 1, sel: null, selGid: ng };
+    });
+  }
+
+  // Everything in the group shifts by the same amount. Connection snapping is
+  // left out on purpose: a group is moved as a unit, and pulling it onto one
+  // member's terminal would drag the rest somewhere nobody asked for.
+  dragGroup(e, gid) {
+    e.stopPropagation();
+    const start = this.pt(e);
+    const base = this.state.items.filter(i => i.gid === gid).map(i => ({
+      id: i.id, wire: !!i.wire,
+      pts: i.wire ? i.pts.map(p => ({ x: p.x, y: p.y })) : null,
+      x: i.x, y: i.y
+    }));
+    this.commit(null);
+    this.setState({ selGid: gid, sel: null, pick: null, draw: null, cursor: null });
+    const move = (ev) => {
+      const p = this.pt(ev);
+      const dx = p.x - start.x, dy = p.y - start.y;
+      this.setState(s2 => ({ items: s2.items.map(i => {
+        const b = base.find(x => x.id === i.id);
+        if (!b) return i;
+        return b.wire
+          ? { ...i, pts: b.pts.map(q => ({ x: q.x + dx, y: q.y + dy })) }
+          : { ...i, x: b.x + dx, y: b.y + dy };
+      }) }));
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+  }
 
   // ── Freehand ────────────────────────────────────────────────────────────
   // Unsnapped throughout: a line drawn by hand is not trying to meet the grid,
@@ -4215,6 +4346,10 @@ class Component extends DCLogic {
     // to the canvas — otherwise the new part cannot be dropped touching (or
     // overlapping) an existing one, which is exactly where it usually belongs.
     if (this.state.pick) return;
+    const it0 = this.state.items.find(i => i.id === id);
+    // Grabbing any member takes the whole group with it, until the group has
+    // been opened by a double-click - inside it, the members are on their own.
+    if (it0 && it0.gid && it0.gid !== this.state.openGid) { this.dragGroup(e, it0.gid); return; }
     e.stopPropagation();
     const start = this.pt(e);
     const it = this.state.items.find(i => i.id === id);
@@ -4749,6 +4884,58 @@ class Component extends DCLogic {
       // Same tool as the toolbar button, surfaced full-width in the panel. The
       // label doubles as the instruction once the tool is armed.
       textPanelLabel: st.pick === TEXT_KEY ? 'Placing…' : 'Text',
+      // ── Groups ────────────────────────────────────────────────────────
+      // Rounded, dashed and in a colour of its own: a group's box says what is
+      // held together, and is deliberately unlike the selection frame, which
+      // says what will be transformed.
+      groupBox: (() => {
+        const gid = st.selGid || st.openGid;
+        if (!gid) return null;
+        const b = unionBox(st.items.filter(i => i.gid === gid));
+        if (!b) return null;
+        const z = st.view.z, pad = 12 / z;
+        const x = b.minX - pad, y = b.minY - pad;
+        const w = b.maxX - b.minX + pad * 2, h = b.maxY - b.minY + pad * 2;
+        const open = !st.selGid;
+        const tw = 46 / z, th = 15 / z;
+        return {
+          x, y, w, h, r: 9 / z, ink: GROUP_INK,
+          sw: open ? 1 : 1.6, dash: open ? `${2 / z} ${4 / z}` : `${9 / z} ${5 / z}`,
+          tx: x, ty: y - th - 3 / z, tw, th, tr: 4 / z,
+          lx: x + tw / 2, ly: y - th - 3 / z + th / 2, ldy: (10 / z) * 0.35, lfs: 10 / z,
+          tag: open ? 'inside' : 'group'
+        };
+      })(),
+      groupBar: !!st.selGid && !editItem,
+      groupBarStyle: (() => {
+        if (!st.selGid) return 'display: none;';
+        const b = unionBox(st.items.filter(i => i.gid === st.selGid));
+        if (!b) return 'display: none;';
+        const z = st.view.z, gut = st.rulers ? 22 : 0;
+        const cx = (b.minX + b.maxX) / 2;
+        const half = 3 * 27 / 2 + 4;
+        let y = gut + (b.minY - vb.y) * z - 30, anchor = '-100%';
+        if (y - 32 < gut + 2) { y = gut + (b.maxY - vb.y) * z + 30; anchor = '0'; }
+        const left = Math.min(Math.max(gut + (cx - vb.x) * z, gut + half + 2), st.vp.w - half - 2);
+        return `position: absolute; left: ${left.toFixed(1)}px; top: ${y.toFixed(1)}px;`
+          + ` transform: translate(-50%, ${anchor}); z-index: 6; display: flex; gap: 1px; padding: 3px;`
+          + ` background: var(--panel); border: 1px solid ${GROUP_INK}; border-radius: 7px;`
+          + ' box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22); white-space: nowrap;';
+      })(),
+      groupBarBtns: !st.selGid ? [] : [
+        { id: 'ungroup', title: 'Ungroup', icon: 'M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M9 12h6',
+          onClick: () => this.ungroup(st.selGid) },
+        { id: 'copy', title: 'Duplicate the group', icon: 'M9 9h10v10H9zM5 15V5h10v4',
+          onClick: () => this.duplicateGroup(st.selGid) },
+        { id: 'del', title: 'Delete the group', icon: 'M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6',
+          onClick: () => this.removeGroup(st.selGid) }
+      ].map(b => ({
+        title: b.title, icon: b.icon, onClick: b.onClick,
+        style: 'display: flex; align-items: center; justify-content: center; width: 26px; height: 24px;'
+          + ` padding: 0; color: ${b.id === 'del' ? 'var(--danger)' : 'var(--fg-2)'};`
+          + ' background: transparent; border: none; border-radius: 5px; cursor: pointer;'
+      })),
+
       // ── Freehand ──────────────────────────────────────────────────────
       addPen: () => this.setState(s2 => ({ pick: s2.pick === PEN_KEY ? null : PEN_KEY, sel: null, draw: null, cursor: null, pen: null })),
       penPanelLabel: st.pick === PEN_KEY ? 'Drawing…' : 'Pencil',
@@ -5054,7 +5241,15 @@ class Component extends DCLogic {
           bx: -c.w * i.sx / 2 - 6, by: -c.h * i.sy / 2 - 6, bw: c.w * i.sx + 12, bh: c.h * i.sy + 12 + (i.label && showLabels ? 22 * i.sy : 0),
           selected: i.id === st.sel,
           onDown: (e) => this.drag(e, i.id, 'move'),
-          onEdit: () => { if (i.text) this.editItem(i.id); }
+          onEdit: () => {
+            // Inside a group, a double-click is what gets you to one member;
+            // once inside, it goes back to opening a text item for editing.
+            if (i.gid && i.gid !== st.openGid) {
+              this.setState({ openGid: i.gid, selGid: null, sel: i.id, pick: null });
+              return;
+            }
+            if (i.text) this.editItem(i.id);
+          }
         };
       }),
 
@@ -5211,6 +5406,22 @@ class Component extends DCLogic {
       // side can still be picked without hunting for it on the canvas.
       hasThumbs: st.items.length > 0,
       thumbCount: st.items.length,
+      multiOn: st.multi,
+      multiBtnLabel: st.multi ? 'Done' : 'Select multiple',
+      multiBtnStyle: `height: 22px; padding: 0 8px; font-family: inherit; font-size: 11px; color: ${st.multi ? 'var(--on-accent)' : 'var(--fg-3)'}; background: ${st.multi ? 'var(--accent)' : 'var(--ctl)'}; border: 1px solid ${st.multi ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 5px; cursor: pointer; white-space: nowrap;`,
+      toggleMulti: () => this.setState(s2 => ({ multi: !s2.multi, picked: [], sel: null, selGid: null, openGid: null })),
+      groupBtnLabel: st.picked.length < 2 ? 'Tick two or more' : `Group ${st.picked.length}`,
+      groupBtnStyle: `flex: 1; height: 28px; font-family: inherit; font-size: 11.5px; font-weight: 500; color: ${st.picked.length < 2 ? 'var(--fg-3)' : 'var(--on-accent)'}; background: ${st.picked.length < 2 ? 'var(--ctl)' : 'var(--accent)'}; border: 1px solid ${st.picked.length < 2 ? 'var(--ctl-line)' : 'var(--accent)'}; border-radius: 5px; cursor: ${st.picked.length < 2 ? 'default' : 'pointer'};`,
+      doGroup: () => this.groupPicked(),
+      canUngroupPicked: st.picked.some(id => { const it = st.items.find(x => x.id === id); return !!(it && it.gid); }),
+      doUngroupPicked: () => {
+        const gids = [...new Set(st.picked.map(id => (st.items.find(x => x.id === id) || {}).gid).filter(Boolean))];
+        this.commit(null);
+        this.setState(s2 => ({
+          items: s2.items.map(i => gids.indexOf(i.gid) >= 0 ? { ...i, gid: null } : i),
+          picked: [], multi: false, selGid: null, openGid: null
+        }));
+      },
       thumbs: st.items.map(i => {
         const ink = dark ? INK_ICON : INK_ICON_LIGHT;
         let viewBox, nodes, name;
@@ -5235,13 +5446,28 @@ class Component extends DCLogic {
           nodes = withDash(nodesFor(withInk(ink, () => c.d(Math.max(2.4, m / 14)))), i.dash);
           name = c.name;
         }
-        const on = i.id === st.sel;
+        const ticked = st.multi && st.picked.indexOf(i.id) >= 0;
+        const on = st.multi ? ticked : (i.id === st.sel || (!!i.gid && i.gid === st.selGid));
         const lbl = i.text ? textLabel(i) : (i.label || '');
+        // A tile of something already in a group is ringed in the group's own
+        // colour, so what is grouped can be read off the strip at a glance.
+        const line = on ? (st.multi ? 'var(--accent)' : 'var(--accent)') : (i.gid ? GROUP_INK : 'var(--ctl-line)');
         return {
           viewBox, nodes,
-          title: name + (lbl ? ' — ' + lbl : ''),
-          style: `width: 40px; height: 40px; padding: 4px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: 1px solid ${on ? 'var(--accent)' : 'var(--ctl-line)'}; border-radius: 8px; cursor: pointer; flex: 0 0 auto;`,
-          onPick: () => this.setState({ sel: i.id, pick: null, draw: null, cursor: null, symTab: null })
+          title: name + (lbl ? ' — ' + lbl : '') + (i.gid ? '  ·  grouped' : ''),
+          style: `width: 40px; height: 40px; padding: 4px; background: ${on ? 'var(--tile-on)' : 'var(--ctl)'}; border: ${i.gid && !on ? '1.5px' : '1px'} solid ${line}; border-radius: 8px; cursor: pointer; flex: 0 0 auto;`,
+          onPick: () => {
+            if (st.multi) {
+              this.setState(s2 => ({
+                picked: s2.picked.indexOf(i.id) >= 0 ? s2.picked.filter(x => x !== i.id) : s2.picked.concat(i.id)
+              }));
+              return;
+            }
+            // Picking a member of a group selects the group, the same as
+            // clicking it on the canvas would.
+            if (i.gid) { this.setState({ sel: null, selGid: i.gid, openGid: null, pick: null, draw: null, cursor: null, symTab: null }); return; }
+            this.setState({ sel: i.id, selGid: null, openGid: null, pick: null, draw: null, cursor: null, symTab: null });
+          }
         };
       }),
 
