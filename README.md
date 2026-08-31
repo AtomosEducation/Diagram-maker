@@ -34,7 +34,7 @@ Then visit <http://localhost:8765/>.
 
 ## Features
 
-- Four subjects — Physics, Chemistry, Mathematics, Biology — across 14 units,
+- Four subjects — Physics, Chemistry, Mathematics, Biology — across 15 units,
   including a Trigonometric Functions unit of plotted graphs and an Inheritance
   unit for Mendelian cross charts whose Punnett square takes its rows, columns
   and cell contents from the Properties panel
@@ -55,6 +55,11 @@ Then visit <http://localhost:8765/>.
   by clicking on the canvas, with solid/dashed/dotted line styles and an
   adjustable curvature on arcs. The circle's side handles pull it into an oval,
   which then turns like anything else
+- Logic unit — switching circuits as Mathematical Logic draws them: switches
+  open or closed, a lamp plain or crossed, a battery of one to four cells,
+  junction dots and arrowed leads. Switches in series read as a conjunction,
+  in parallel as a disjunction, and each carries its own bar on the right of
+  the selection box for the state it can be in
 - The Coordinate Geometry grid is built to order — set how many vertical and
   horizontal lines it has and how far apart they sit, anything from a 2×2 box
   to a full sheet of graph paper
@@ -95,7 +100,8 @@ Then visit <http://localhost:8765/>.
 - A bar down the right of the selection box carries whatever belongs to that
   kind of element and nothing else — the arc or right angle and the arrowheads
   on an angle mark, the ends of a dimension, the arrow and corner routing on a
-  wire, filled or hollow on a point, the mark over a piece of text
+  wire, filled or hollow on a point, the mark over a piece of text, open or
+  closed on a switch, the number of cells in a battery
 - A Style bar down the left of the selection box sets the line style — solid,
   dashed or dotted — on anything with a stroke to break up, components
   included, so a dashed lead or a dotted construction line is one click away

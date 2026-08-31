@@ -1342,6 +1342,30 @@ const strokeE = (cx, cy, rx, ry, rot, sw, style) => {
     + `${da ? ` stroke-dasharray="${da}"` : ''}/>`;
 };
 
+// ── Switching circuits ────────────────────────────────────────────────────
+// The symbols a Mathematical Logic chapter draws its circuits from. A switch
+// is two terminals and a blade: lying across them it conducts, lifted off the
+// right-hand one it does not, which is the whole of what the diagrams say.
+const swDraw = (it, sw) => {
+  const shut = !!(it && it.shut);
+  const lead = P('M-32 0 H-14 M14 0 H32', sw);
+  const blade = shut ? P('M-14 0 H14', sw) : P('M-14 0 L11 -14', sw);
+  return lead + blade + DOT(-14, 0, Math.max(2.2, sw * 1.5)) + DOT(14, 0, Math.max(2.2, sw * 1.5));
+};
+// A battery of `cells` cells: a long plate and a short one for each.
+const cellDraw = (it, sw) => {
+  const n = Math.max(1, Math.min(4, (it && it.cells) || 2));
+  const pitch = 13, span = n * pitch;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const x = -span / 2 + i * pitch + 2;
+    d += `M${x} -11 V11 M${x + 6} -6 V6 `;
+  }
+  return P(d.trim(), sw) + P(`M-28 0 H${-span / 2 + 2} M${-span / 2 + (n - 1) * pitch + 8} 0 H28`, sw);
+};
+const lampDraw = (it, sw) => C(0, 0, 15, sw) + P('M-30 0 H-15 M15 0 H30', sw)
+  + ((it && it.xlamp) ? P('M-10.6 -10.6 L10.6 10.6 M10.6 -10.6 L-10.6 10.6', sw) : '');
+
 // ── Angle marks ───────────────────────────────────────────────────────────
 // Placed by clicking two lines rather than dropped at a point: the vertex is
 // where those two lines meet, and the arc sweeps between the directions the
@@ -3005,6 +3029,22 @@ const LIB = [
       { id: 'cone', name: 'Cone', w: 120, h: 150, d: (s) => P('M0 -62 L-46 52 M0 -62 L46 52', s) + ELL(0, 52, 46, 16, s) },
       { id: 'sphere', name: 'Sphere', w: 120, h: 120, d: (s) => C(0, 0, 54, s) + ELL(0, 0, 54, 17, s, '5 5') },
       { id: 'hemisphere', name: 'Hemisphere', w: 120, h: 90, d: (s) => P('M-54 12 A54 54 0 0 1 54 12', s) + ELL(0, 12, 54, 16, s) }
+    ]},
+    { id: 'logic', name: 'Logic', comps: [
+      // Switching circuits, as Mathematical Logic draws them: switches in
+      // series read as a conjunction, in parallel as a disjunction.
+      { id: 'switch', name: 'Switch', w: 64, h: 34, defLabel: 'S_1', lgap: 22, shutable: true,
+        t: [[-32, 0], [32, 0]], d: (s, it) => swDraw(it, s) },
+      { id: 'switchc', name: 'Switch (closed)', w: 64, h: 34, defLabel: 'S_1', lgap: 22, shutable: true,
+        defShut: true, t: [[-32, 0], [32, 0]], d: (s, it) => swDraw({ shut: it ? it.shut : true }, s) },
+      { id: 'lamp', name: 'Lamp', w: 60, h: 34, defLabel: 'L', lgap: 0, lampable: true,
+        t: [[-30, 0], [30, 0]], d: (s, it) => lampDraw(it, s) },
+      { id: 'cell', name: 'Cell / battery', w: 60, h: 26, cellsy: true,
+        t: [[-28, 0], [28, 0]], d: (s, it) => cellDraw(it, s) },
+      { id: 'node', name: 'Junction dot', w: 16, h: 16,
+        t: [[0, 0]], d: (s) => DOT(0, 0, Math.max(3, s * 1.9)) },
+      { id: 'lwire', name: 'Wire / lead', wire: true, kind: 'poly', w: 90, h: 12,
+        d: (s) => P('M-45 0 H45', s) + AHEAD(18, 0, 0, Math.max(7, s * 4)) }
     ]}
   ]},
   { id: 'biology', name: 'Biology', units: [
@@ -3937,7 +3977,10 @@ class Component extends DCLogic {
     if (fit) { x = fit.x; y = fit.y; }
     this.commit(null);
     this.setState(s => ({
-      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label || c.defLabel || '', ...(c.punnett ? punInit(c.defRows, c.defCols) : {}) }),
+      items: s.items.concat({ id: s.nextId, key, x, y, sx: d.sx, sy: d.sy, rot: d.rot, sw: d.sw, flip: d.flip, label: d.label || c.defLabel || '',
+        // A component that is drawn closed has to start closed on the item too,
+        // or the contextual bar would show it open the moment it is selected.
+        ...(c.defShut ? { shut: true } : {}), ...(c.punnett ? punInit(c.defRows, c.defCols) : {}) }),
       nextId: s.nextId + 1, sel: s.nextId
     }));
   }
@@ -5587,7 +5630,7 @@ class Component extends DCLogic {
         if (!sel || editItem) return false;
         const c = IDX[sel.key] || {};
         const kind = sel.wire ? kindOf(sel) : null;
-        return !!(c.angle || c.hollowable || (sel.text && !sel.eq)
+        return !!(c.angle || c.hollowable || c.shutable || c.cellsy || c.lampable || (sel.text && !sel.eq)
           || kind === 'dim' || kind === 'poly' || kind === 'seg' || kind === 'polyline');
       })(),
       rightBarBtns: (() => {
@@ -5641,6 +5684,25 @@ class Component extends DCLogic {
             btn('Straight run', r === 'straight', 'M4 19L20 5', '', pick({ route: 'straight' }));
             btn('Right-angle run', r === 'ortho', 'M4 19H12V5H20', '', pick({ route: 'ortho' }));
           }
+        } else if (c.shutable) {
+          // Open or closed is what a switch says, so it is the choice the bar
+          // carries: the blade lifted off its terminal, or lying across it.
+          btn('Open', !sel.shut, 'M5 15H9M15 15H19M9 15L17 8', '',
+            pick({ shut: false }));
+          btn('Closed', !!sel.shut, 'M5 15H19', '', pick({ shut: true }));
+        } else if (c.cellsy) {
+          const n = Math.max(1, Math.min(4, sel.cells || 2));
+          [1, 2, 3, 4].forEach(k => {
+            let d = 'M3 12H6';
+            for (let i = 0; i < k; i++) { const x = 6 + i * 5; d += `M${x} 7V17M${x + 2.5} 9.5V14.5`; }
+            d += `M${6 + (k - 1) * 5 + 2.5} 12H21`;
+            btn(k === 1 ? 'One cell' : `${k} cells`, n === k, d, '', pick({ cells: k }));
+          });
+        } else if (c.lampable) {
+          btn('Plain lamp', !sel.xlamp, 'M12 5a7 7 0 100 14a7 7 0 100-14M2 12h5M17 12h5', '',
+            pick({ xlamp: false }));
+          btn('Crossed lamp', !!sel.xlamp, 'M12 5a7 7 0 100 14a7 7 0 100-14M2 12h5M17 12h5M7 7l10 10M17 7L7 17', '',
+            pick({ xlamp: true }));
         } else if (c.hollowable) {
           btn('Filled', !sel.hollow, '', 'M17 12a5 5 0 11-10 0a5 5 0 1110 0', pick({ hollow: false }));
           btn('Hollow', !!sel.hollow, 'M12 7a5 5 0 100 10a5 5 0 100-10', '', pick({ hollow: true }));
